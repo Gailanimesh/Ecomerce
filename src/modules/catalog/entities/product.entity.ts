@@ -12,6 +12,7 @@ import { BaseEntity } from '../../../common/entities/base.entity';
 import { Brand } from './brand.entity';
 import { Category } from './category.entity';
 import { ProductVariant } from './product-variant.entity';
+import { ProductMedia } from './product-media.entity';
 import { ProductStatus } from '../enum/productstaus.enum';
 
 @Entity('products')
@@ -51,4 +52,9 @@ export class Product extends BaseEntity {
 
   @OneToMany(() => ProductVariant, (variant) => variant.product)
   variants!: ProductVariant[];
+
+  @OneToMany(() => ProductMedia, (media) => media.product, {
+    cascade: true,
+  })
+  media!: ProductMedia[];
 }

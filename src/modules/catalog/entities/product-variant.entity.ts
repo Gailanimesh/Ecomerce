@@ -2,37 +2,33 @@ import {
   Entity,
   Column,
   ManyToOne,
-  OneToMany,
   OneToOne,
   JoinColumn,
   Index,
-  In,
+  OneToMany,
 } from 'typeorm';
 
 import { BaseEntity } from '../../../common/entities/base.entity';
 
 import { Product } from './product.entity';
-import { ProductImage } from './product-image.entity';
 import { Inventory } from '../../inventory/entities/inventory.entity';
 import { CartItem } from '../../cart/entities/cart-item.entity';
 import { OrderItem } from '../../orders/entities/order-item.entity';
+
 @Entity('product_variants')
 export class ProductVariant extends BaseEntity {
   @Index()
   @Column({ unique: true })
   sku!: string;
 
-//   @Column()
-//   name!: string;
-
-
   @Index()
-    @Column({ unique: true })
-    slug!: string;
+  @Column({ unique: true })
+  slug!: string;
+
   @Column({
-  type: 'decimal',
-  precision: 10,
-  scale: 2,
+    type: 'decimal',
+    precision: 10,
+    scale: 2,
   })
   price!: string;
 
@@ -57,12 +53,12 @@ export class ProductVariant extends BaseEntity {
   })
   product!: Product;
 
-  @OneToMany(() => ProductImage, (image) => image.variant)
-  images!: ProductImage[];
   @OneToOne(() => Inventory, (inventory) => inventory.variant)
   inventory!: Inventory;
+
   @OneToMany(() => CartItem, (cartItem) => cartItem.productVariant)
   cartItems!: CartItem[];
+
   @OneToMany(() => OrderItem, (orderItem) => orderItem.productVariant)
   orderItems!: OrderItem[];
 }

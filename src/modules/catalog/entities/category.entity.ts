@@ -12,9 +12,7 @@ import { Product } from './product.entity';
 
 @Entity('categories')
 export class Category extends BaseEntity {
-  @Column({
-    unique: true,
-  })
+  @Column()
   name!: string;
 
   @Index()
