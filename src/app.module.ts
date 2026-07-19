@@ -18,45 +18,46 @@ import { AdminModule } from './modules/admin/admin.module';
 import { HealthModule } from './modules/health/health.module';
 
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { AuthModule } from './modules/auth/auth.module';
 
 import appConfig from './config/app.config';
+import authConfig from './config/auth.config';
 import databaseConfig from './config/database.config';
 @Module({
   imports: [LoggerModule.forRoot(),
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath:[ `.env.${process.env.NODE_ENV || 'development'}`,
+  ConfigModule.forRoot({
+    isGlobal: true,
+    envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`,
       '.env',],
-      
-  load: [
-    appConfig,
-    databaseConfig,
-  ],
-}),
-    TypeOrmModule.forRootAsync({
-  inject: [ConfigService],
 
-  useFactory: (configService: ConfigService) => ({
-    type: 'postgres',
-
-    host: configService.get<string>('database.host'),
-
-    port: configService.get<number>('database.port'),
-
-    username: configService.get<string>('database.username'),
-
-    password: configService.get<string>('database.password'),
-
-    database: configService.get<string>('database.database'),
-
-    synchronize: configService.get<boolean>('database.synchronize'),
-
-    autoLoadEntities: configService.get<boolean>('database.autoLoadEntities'),
-
-    logging: configService.get<boolean>('database.logging'),
+    load: [
+      appConfig,
+      authConfig,
+      databaseConfig,
+    ],
   }),
-}),
+  TypeOrmModule.forRootAsync({
+    inject: [ConfigService],
+
+    useFactory: (configService: ConfigService) => ({
+      type: 'postgres',
+
+      host: configService.get<string>('database.host'),
+
+      port: configService.get<number>('database.port'),
+
+      username: configService.get<string>('database.username'),
+
+      password: configService.get<string>('database.password'),
+
+      database: configService.get<string>('database.database'),
+
+      synchronize: configService.get<boolean>('database.synchronize'),
+
+      autoLoadEntities: configService.get<boolean>('database.autoLoadEntities'),
+
+      logging: configService.get<boolean>('database.logging'),
+    }),
+  }),
     AuthModule,
     UsersModule,
     CatalogModule,
@@ -75,4 +76,4 @@ import databaseConfig from './config/database.config';
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
