@@ -2,6 +2,7 @@ export interface AccessTokenPayload {
     sub: string;
     email: string;
     roleId: string;
+    sid: string;
     type: 'access';
 }
 

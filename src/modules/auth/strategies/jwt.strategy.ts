@@ -42,10 +42,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             throw new UnauthorizedException('Invalid authentication token');
         }
 
-        return this.toAuthenticatedUser(user);
+        return this.toAuthenticatedUser(user, payload.sid);
     }
 
-    private toAuthenticatedUser(user: User): AuthenticatedUser {
+    private toAuthenticatedUser(user: User, sessionId: string): AuthenticatedUser {
         const [firstName = '', ...rest] = user.fullName.trim().split(/\s+/);
 
         return {
@@ -53,6 +53,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
             email: user.email,
             firstName,
             lastName: rest.join(' '),
+            role: user.role.name,
+            sessionId,
         };
     }
 }

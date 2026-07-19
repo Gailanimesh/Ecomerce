@@ -8,6 +8,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 import { User } from '../users/entities/user.entity';
 import { Session } from './entities/session.entity';
 import { Role } from '../users/entities/role.entity';
@@ -20,7 +21,7 @@ import { Role } from '../users/entities/role.entity';
     TypeOrmModule.forFeature([User, Session, Role]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, JwtAuthGuard],
+  providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],
   exports: [AuthService],
 })
 export class AuthModule { }

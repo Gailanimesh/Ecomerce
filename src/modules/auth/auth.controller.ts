@@ -15,6 +15,9 @@ import { LoginDto } from './dto/login.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Roles } from './decorators/roles.decorator';
+import { RolesGuard } from './guards/roles.guard';
+import { RoleEnum } from '../../common/enums/roles.enum';
 import type { AuthenticatedUser } from './types/authenticated-user.type';
 import type { AuthRequest } from './interfaces/auth-request.interface';
 
@@ -51,5 +54,29 @@ export class AuthController {
     @Get('me')
     me(@CurrentUser() user: AuthenticatedUser) {
         return user;
+    }
+
+    @Public()
+    @Post('logout')
+    logout(
+        @Req() request: AuthRequest,
+        @Res({ passthrough: true }) response: Response,
+    ) {
+        return this.authService.logout(request, response);
+    }
+
+    @Post('logout-all')
+    logoutAll(
+        @CurrentUser() user: AuthenticatedUser,
+        @Res({ passthrough: true }) response: Response,
+    ) {
+        return this.authService.logoutAll(user.id, response);
+    }
+
+    @Get('admin-test')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles(RoleEnum.ADMIN)
+    adminTest() {
+        return { message: 'Admin access granted' };
     }
 }

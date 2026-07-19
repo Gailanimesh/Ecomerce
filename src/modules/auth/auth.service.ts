@@ -73,7 +73,7 @@ export class AuthService {
 
             return {
                 message: 'User registered successfully',
-                user: this.sanitizeUser(savedUser, dto.firstName, dto.lastName),
+                user: this.sanitizeUser(savedUser, undefined, dto.firstName, dto.lastName),
             };
         } catch (error) {
             this.handleUnexpectedError(error);
@@ -115,13 +115,13 @@ export class AuthService {
 
             await this.sessionRepository.save(session);
 
-            const accessToken = await this.generateAccessToken(user);
+            const accessToken = await this.generateAccessToken(user, sessionId);
 
             this.setRefreshCookie(response, refreshToken);
             console.log(response.getHeaders());
             return {
                 accessToken,
-                user: this.sanitizeUser(user),
+                user: this.sanitizeUser(user, sessionId),
             };
         } catch (error) {
             this.handleUnexpectedError(error);
@@ -180,11 +180,59 @@ export class AuthService {
 
             await this.sessionRepository.save(session);
 
-            const accessToken = await this.generateAccessToken(session.user);
+            const accessToken = await this.generateAccessToken(session.user, session.id);
 
             this.setRefreshCookie(response, newRefreshToken);
 
             return { accessToken };
+        } catch (error) {
+            this.handleUnexpectedError(error);
+        }
+    }
+
+    async deleteSession(sessionId: string): Promise<void> {
+        await this.sessionRepository.delete({ id: sessionId });
+    }
+
+    async deleteAllSessions(userId: string): Promise<void> {
+        await this.sessionRepository.delete({ user: { id: userId } });
+    }
+
+    async logout(
+        request: AuthRequest,
+        response: Response,
+    ): Promise<{ message: string }> {
+        try {
+            const refreshToken = this.getRefreshTokenFromRequest(request);
+            let payload: RefreshTokenPayload;
+            try {
+                payload = await this.verifyRefreshToken(refreshToken);
+            } catch (error) {
+                throw new UnauthorizedException('Invalid authentication token');
+            }
+
+            if (payload.type !== REFRESH_TOKEN_TYPE) {
+                throw new UnauthorizedException('Invalid authentication token');
+            }
+
+            await this.deleteSession(payload.sid);
+            this.clearRefreshCookie(response);
+
+            return { message: 'Logged out successfully' };
+        } catch (error) {
+            this.handleUnexpectedError(error);
+        }
+    }
+
+    async logoutAll(
+        userId: string,
+        response: Response,
+    ): Promise<{ message: string }> {
+        try {
+            await this.deleteAllSessions(userId);
+            this.clearRefreshCookie(response);
+
+            return { message: 'Logged out from all devices successfully' };
         } catch (error) {
             this.handleUnexpectedError(error);
         }
@@ -245,8 +293,11 @@ export class AuthService {
         return compare(plainValue, hashedValue);
     }
 
-    private async generateAccessToken(user: User): Promise<string> {
-        return this.jwtService.signAsync(this.buildJwtPayload(user), {
+    private async generateAccessToken(
+        user: User,
+        sessionId: string,
+    ): Promise<string> {
+        return this.jwtService.signAsync(this.buildAccessTokenPayload(user, sessionId), {
             secret: this.configService.getOrThrow<string>('auth.accessSecret'),
             expiresIn:
                 this.configService.getOrThrow<string>('auth.accessExpiresIn') as any,
@@ -257,7 +308,7 @@ export class AuthService {
         user: User,
         sessionId: string,
     ): Promise<string> {
-        return this.jwtService.signAsync(this.buildRefreshPayload(user, sessionId), {
+        return this.jwtService.signAsync(this.buildRefreshTokenPayload(user, sessionId), {
             secret: this.configService.getOrThrow<string>('auth.refreshSecret'),
             expiresIn:
                 this.configService.getOrThrow<string>('auth.refreshExpiresIn') as any,
@@ -272,7 +323,10 @@ export class AuthService {
         });
     }
 
-    private buildJwtPayload(user: User): AccessTokenPayload {
+    private buildAccessTokenPayload(
+        user: User,
+        sessionId: string,
+    ): AccessTokenPayload {
         if (!user.role) {
             throw new UnauthorizedException('Authentication failed');
         }
@@ -281,11 +335,12 @@ export class AuthService {
             sub: user.id,
             email: user.email,
             roleId: user.role.id,
+            sid: sessionId,
             type: ACCESS_TOKEN_TYPE,
         };
     }
 
-    private buildRefreshPayload(
+    private buildRefreshTokenPayload(
         user: User,
         sessionId: string,
     ): RefreshTokenPayload {
@@ -317,6 +372,7 @@ export class AuthService {
 
     private sanitizeUser(
         user: User,
+        sessionId?: string,
         firstNameOverride?: string,
         lastNameOverride?: string,
     ): AuthenticatedUser {
@@ -327,6 +383,8 @@ export class AuthService {
             email: user.email,
             firstName: firstNameOverride ?? nameParts.firstName,
             lastName: lastNameOverride ?? nameParts.lastName,
+            role: user.role?.name,
+            sessionId,
         };
     }
 
