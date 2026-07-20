@@ -1,5 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
+jest.mock('./inventory.service', () => ({
+  InventoryService: class {},
+}));
+
 import { InventoryController } from './inventory.controller';
+import { InventoryService } from './inventory.service';
 
 describe('InventoryController', () => {
   let controller: InventoryController;
@@ -7,6 +13,12 @@ describe('InventoryController', () => {
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       controllers: [InventoryController],
+      providers: [
+        {
+          provide: InventoryService,
+          useValue: {},
+        },
+      ],
     }).compile();
 
     controller = module.get<InventoryController>(InventoryController);
