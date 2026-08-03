@@ -5,7 +5,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, EntityManager } from 'typeorm';
 
 import { Inventory } from './entities/inventory.entity';
 import { ProductVariant } from '../catalog/entities/product-variant.entity';
@@ -276,11 +276,13 @@ export class InventoryService {
   async reserveStock(
     variantId: string,
     quantity: number,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const inventory = await manager.findOne(Inventory, {
         where: { variant: { id: variantId } },
         relations: { variant: true },
+        lock: { mode: 'pessimistic_write' },
       });
 
       if (!inventory) {
@@ -302,14 +304,20 @@ export class InventoryService {
 
       const saved = await manager.save(inventory);
       return this.mapToResponseDto(saved);
-    });
+    };
+
+    if (externalManager) {
+      return execute(externalManager);
+    }
+    return this.dataSource.transaction((manager) => execute(manager));
   }
 
   async releaseReservation(
     variantId: string,
     quantity: number,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const inventory = await manager.findOne(Inventory, {
         where: { variant: { id: variantId } },
         relations: { variant: true },
@@ -334,14 +342,20 @@ export class InventoryService {
 
       const saved = await manager.save(inventory);
       return this.mapToResponseDto(saved);
-    });
+    };
+
+    if (externalManager) {
+      return execute(externalManager);
+    }
+    return this.dataSource.transaction((manager) => execute(manager));
   }
 
   async commitReservation(
     variantId: string,
     quantity: number,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const inventory = await manager.findOne(Inventory, {
         where: { variant: { id: variantId } },
         relations: { variant: true },
@@ -365,7 +379,12 @@ export class InventoryService {
 
       const saved = await manager.save(inventory);
       return this.mapToResponseDto(saved);
-    });
+    };
+
+    if (externalManager) {
+      return execute(externalManager);
+    }
+    return this.dataSource.transaction((manager) => execute(manager));
   }
 
   async updateThreshold(
