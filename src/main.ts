@@ -17,6 +17,7 @@ import { configureScalar } from './config/bootstrap/scalar.config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
 
   app.useLogger(app.get(Logger));

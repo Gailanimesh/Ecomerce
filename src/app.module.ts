@@ -22,42 +22,32 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import appConfig from './config/app.config';
 import authConfig from './config/auth.config';
 import databaseConfig from './config/database.config';
+import paymentConfig from './config/payment.config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { CorrelationIdInterceptor } from './common/interceptors/correlation-id.interceptor';
+
 @Module({
-  imports: [LoggerModule.forRoot(),
-  ConfigModule.forRoot({
-    isGlobal: true,
-    envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`,
-      '.env',],
-
-    load: [
-      appConfig,
-      authConfig,
-      databaseConfig,
-    ],
-  }),
-  TypeOrmModule.forRootAsync({
-    inject: [ConfigService],
-
-    useFactory: (configService: ConfigService) => ({
-      type: 'postgres',
-
-      host: configService.get<string>('database.host'),
-
-      port: configService.get<number>('database.port'),
-
-      username: configService.get<string>('database.username'),
-
-      password: configService.get<string>('database.password'),
-
-      database: configService.get<string>('database.database'),
-
-      synchronize: configService.get<boolean>('database.synchronize'),
-
-      autoLoadEntities: configService.get<boolean>('database.autoLoadEntities'),
-
-      logging: configService.get<boolean>('database.logging'),
+  imports: [
+    LoggerModule.forRoot(),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`, '.env'],
+      load: [appConfig, authConfig, databaseConfig, paymentConfig],
     }),
-  }),
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('database.host'),
+        port: configService.get<number>('database.port'),
+        username: configService.get<string>('database.username'),
+        password: configService.get<string>('database.password'),
+        database: configService.get<string>('database.database'),
+        synchronize: configService.get<boolean>('database.synchronize'),
+        autoLoadEntities: configService.get<boolean>('database.autoLoadEntities'),
+        logging: configService.get<boolean>('database.logging'),
+      }),
+    }),
     AuthModule,
     UsersModule,
     CatalogModule,
@@ -74,6 +64,11 @@ import databaseConfig from './config/database.config';
     HealthModule,
   ],
   controllers: [],
-  providers: [],
+  providers: [
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: CorrelationIdInterceptor,
+    },
+  ],
 })
-export class AppModule { }
+export class AppModule {}
