@@ -14,11 +14,16 @@ import {
 export class MockPaymentGateway implements IPaymentGateway {
   private readonly logger = new Logger(MockPaymentGateway.name);
   private readonly mockSecret = 'mock_secret_key_456';
+  private static lastCreatedAmountInPaise: number = 0;
+
+  private readonly orderStore = new Map<string, number>();
 
   async createGatewayOrder(
     params: CreateGatewayOrderParams,
   ): Promise<GatewayOrderResponse> {
     const mockGatewayOrderId = `order_mock_${Date.now().toString(36)}`;
+    this.orderStore.set(mockGatewayOrderId, params.amountInPaise);
+    MockPaymentGateway.lastCreatedAmountInPaise = params.amountInPaise;
     this.logger.log(`[MockGateway] Created gateway order: ${mockGatewayOrderId}`);
 
     const rawResponse = {
@@ -88,11 +93,17 @@ export class MockPaymentGateway implements IPaymentGateway {
     gatewayPaymentId: string,
   ): Promise<GatewayPaymentDetails> {
     this.logger.log(`[MockGateway] Fetched payment details for ${gatewayPaymentId}`);
+    
+    // Use last created order amount if available, otherwise 49950
+    const recordedAmount =
+      MockPaymentGateway.lastCreatedAmountInPaise > 0
+        ? MockPaymentGateway.lastCreatedAmountInPaise
+        : (Array.from(this.orderStore.values()).pop() || 49950);
 
     const rawResponse = {
       id: gatewayPaymentId,
       entity: 'payment',
-      amount: 49950,
+      amount: recordedAmount,
       currency: 'INR',
       status: 'captured',
       order_id: 'order_mock_test',
@@ -120,7 +131,7 @@ export class MockPaymentGateway implements IPaymentGateway {
     return {
       paymentId: gatewayPaymentId,
       orderId: 'order_mock_test',
-      amountInPaise: 49950,
+      amountInPaise: recordedAmount,
       currency: 'INR',
       status: 'captured',
       method: 'card',

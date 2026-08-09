@@ -82,10 +82,18 @@ export class PaymentsService {
     }
 
     const selectedMethod = dto.paymentMethod || order.paymentMethod || PaymentMethods.CARD;
+
+    const rawProviderConfig = this.configService.get<string>('payment.provider');
+    const configuredProvider = rawProviderConfig
+      ? (rawProviderConfig.toUpperCase() as PaymentProvider)
+      : PaymentProvider.RAZORPAY;
+
     const provider =
       selectedMethod === PaymentMethods.CASH_ON_DELIVERY
         ? PaymentProvider.MOCK
-        : (this.configService.get<PaymentProvider>('payment.provider') || PaymentProvider.RAZORPAY);
+        : (Object.values(PaymentProvider).includes(configuredProvider)
+            ? configuredProvider
+            : PaymentProvider.RAZORPAY);
 
     // 3. Create or Fetch Existing Local Payment Entity (Short-lived DB Transaction)
     let payment = await this.paymentRepository.findOne({
