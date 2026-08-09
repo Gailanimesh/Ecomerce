@@ -93,7 +93,7 @@ export class MockPaymentGateway implements IPaymentGateway {
     gatewayPaymentId: string,
   ): Promise<GatewayPaymentDetails> {
     this.logger.log(`[MockGateway] Fetched payment details for ${gatewayPaymentId}`);
-    
+
     // Use last created order amount if available, otherwise 49950
     const recordedAmount =
       MockPaymentGateway.lastCreatedAmountInPaise > 0

@@ -86,6 +86,10 @@ export class RazorpayGateway implements IPaymentGateway {
         .update(rawBody)
         .digest('hex');
 
+      this.logger.log(
+        `[Webhook Verification] Expected: ${expectedSignature} | Received: ${signature} | Secret: ${targetSecret} | RawBodyLen: ${rawBody?.length}`,
+      );
+
       return expectedSignature === signature;
     } catch (error) {
       this.logger.error(`Webhook signature verification error`, error);
@@ -153,7 +157,7 @@ export class RazorpayGateway implements IPaymentGateway {
   ): Promise<any> {
     const url = `${this.baseUrl}${endpoint}`;
     const authHeader = `Basic ${Buffer.from(
-      `${this.keyId}:${this.keySecret}`,
+      `${this.keyId.trim()}:${this.keySecret.trim()}`,
     ).toString('base64')}`;
 
     let attempts = 0;

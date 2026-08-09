@@ -51,7 +51,7 @@ export class PaymentsService {
     private readonly paymentGateway: any,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   /**
    * Sequence 1: Initiates payment workflow for an existing PENDING_PAYMENT order.
@@ -92,8 +92,8 @@ export class PaymentsService {
       selectedMethod === PaymentMethods.CASH_ON_DELIVERY
         ? PaymentProvider.MOCK
         : (Object.values(PaymentProvider).includes(configuredProvider)
-            ? configuredProvider
-            : PaymentProvider.RAZORPAY);
+          ? configuredProvider
+          : PaymentProvider.RAZORPAY);
 
     // 3. Create or Fetch Existing Local Payment Entity (Short-lived DB Transaction)
     let payment = await this.paymentRepository.findOne({
@@ -285,7 +285,14 @@ export class PaymentsService {
       throw new BadRequestException('Invalid JSON payload in webhook.');
     }
 
-    const eventId = payload.contains?.event_id || payload.event_id || payload.id;
+    const eventId =
+      headers['x-razorpay-event-id'] ||
+      headers['X-Razorpay-Event-Id'] ||
+      headers['x-event-id'] ||
+      payload.event_id ||
+      payload.id ||
+      payload.contains?.event_id;
+
     const eventType = payload.event;
 
     if (!eventId) {

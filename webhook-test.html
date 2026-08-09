@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Razorpay Real Webhook Test</title>
+  <style>
+    body { font-family: sans-serif; max-width: 550px; margin: 40px auto; padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+    label { display: block; margin-top: 15px; font-weight: bold; }
+    input { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+    button { background: #28a745; color: white; border: none; padding: 12px 20px; font-size: 16px; margin-top: 20px; cursor: pointer; border-radius: 4px; width: 100%; font-weight: bold; }
+    button:hover { background: #218838; }
+    #log { margin-top: 20px; padding: 12px; background: #1e1e1e; color: #00ff66; font-family: monospace; white-space: pre-wrap; font-size: 13px; border-radius: 4px; min-height: 120px; }
+    .note { background: #e9f7ef; padding: 10px; border-left: 4px solid #28a745; margin-bottom: 15px; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h2>Razorpay Webhook Pure Test</h2>
+  <div class="note">
+    <strong>Flow:</strong> This page ONLY opens the Razorpay Modal. When you pay, client verification is DISABLED. Razorpay's servers will send a real <code>payment.captured</code> Webhook via your Cloudflare Tunnel to confirm the order!
+  </div>
+
+  <label for="jwt">JWT Access Token:</label>
+  <input type="text" id="jwt" placeholder="Bearer eyJhbGci..." />
+
+  <label for="orderId">Order UUID:</label>
+  <input type="text" id="orderId" placeholder="a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11" />
+
+  <button id="pay-btn">Pay (Webhook Only Test)</button>
+
+  <div id="log">Logs will appear here...</div>
+
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <script>
+    const logEl = document.getElementById('log');
+    function log(msg) { logEl.textContent += msg + '\n'; }
+
+    document.getElementById('pay-btn').onclick = async () => {
+      try {
+        const rawToken = document.getElementById('jwt').value.trim();
+        const token = rawToken.startsWith('Bearer ') ? rawToken : 'Bearer ' + rawToken;
+        const orderId = document.getElementById('orderId').value.trim();
+
+        if (!rawToken || !orderId) {
+          alert('Please enter JWT token and Order ID');
+          return;
+        }
+
+        log('Initiating payment for Order: ' + orderId);
+
+        // 1. Call Initiate Endpoint
+        const res = await fetch('http://localhost:3000/api/v1/payments/initiate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': token
+          },
+          body: JSON.stringify({ orderId: orderId, paymentMethod: 'CARD' })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          log('Initiate Failed: ' + JSON.stringify(data));
+          return;
+        }
+
+        log('Initiate Success! Razorpay Gateway Order ID: ' + data.gatewayOrderId);
+        log('Opening Razorpay Payment Modal...');
+
+        // 2. Open Razorpay Checkout Modal without Client Signature Verification handler
+        const options = {
+          key: data.keyId,
+          amount: data.amountInPaise,
+          currency: data.currency,
+          name: "Webhook E-Commerce Test",
+          description: "Testing Real Webhook Confirmation",
+          order_id: data.gatewayOrderId,
+          handler: function (razorpayResponse) {
+            log('\n===========================================');
+            log('Razorpay Modal Payment Completed!');
+            log('Payment ID: ' + razorpayResponse.razorpay_payment_id);
+            log('Gateway Order ID: ' + razorpayResponse.razorpay_order_id);
+            log('-------------------------------------------');
+            log('NOTICE: Client verify endpoint was NOT called!');
+            log('Razorpay is now sending the webhook to your Cloudflare tunnel...');
+            log('Check your terminal running NestJS for:');
+            log('"[PaymentsService] Webhook event_id processed successfully."');
+            log('===========================================\n');
+            alert('Payment done in Modal! Now check your NestJS terminal to see Razorpay send the live Webhook!');
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      } catch (err) {
+        log('Error: ' + err.message);
+      }
+    };
+  </script>
+</body>
+</html>

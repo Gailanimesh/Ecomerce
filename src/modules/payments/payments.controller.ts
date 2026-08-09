@@ -37,7 +37,7 @@ import { Public } from '../auth/decorators/public.decorator';
 @ApiTags('Payments')
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) {}
+  constructor(private readonly paymentsService: PaymentsService) { }
 
   @ApiOperation({
     summary: 'Initiate payment for an order',
@@ -156,7 +156,7 @@ Razorpay Gateway Webhook Event
 \`\`\``,
   })
   @Public()
-  @Post('webhook/razorpay')
+  @Post('webhook')
   handleWebhook(
     @Req() req: any,
     @Headers('x-razorpay-signature') signature: string,
