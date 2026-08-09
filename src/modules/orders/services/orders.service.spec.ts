@@ -23,21 +23,21 @@ describe('OrdersService', () => {
   let inventoryService: Partial<InventoryService>;
   let orderNumberService: Partial<OrderNumberService>;
 
-  const mockManager: Partial<EntityManager> = {
+  const mockManager = {
     findOne: jest.fn(),
-    create: jest.fn((entityClass, plainObject) => plainObject as any),
-    save: jest.fn(async (entityClassOrObj, obj) => {
+    create: jest.fn((entityClass: any, plainObject: any) => plainObject as any),
+    save: jest.fn(async (entityClassOrObj: any, obj?: any) => {
       const entity = obj || entityClassOrObj;
-      if (!entity.id) entity.id = 'mock-generated-uuid';
+      if (entity && typeof entity === 'object' && !entity.id) entity.id = 'mock-generated-uuid';
       return entity;
     }),
     delete: jest.fn().mockResolvedValue({ affected: 1 }),
-  };
+  } as unknown as EntityManager;
 
   beforeEach(async () => {
     dataSource = {
-      transaction: jest.fn(async (cb) => cb(mockManager as EntityManager)),
-    };
+      transaction: jest.fn(async (cb: any) => cb(mockManager)),
+    } as any;
 
     inventoryService = {
       reserveStock: jest.fn().mockResolvedValue({}),

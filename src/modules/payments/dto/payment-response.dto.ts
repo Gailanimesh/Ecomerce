@@ -51,6 +51,12 @@ export class PaymentResponseDto {
   @ApiProperty({ example: 499.5 })
   amount!: number;
 
+  @ApiPropertyOptional({ example: 'order_Nx1234567890' })
+  razorpayOrderId?: string;
+
+  @ApiPropertyOptional({ example: 'pay_Nx9876543210' })
+  razorpayPaymentId?: string;
+
   @ApiPropertyOptional({ example: 'pay_Nx9876543210' })
   transactionReference?: string;
 

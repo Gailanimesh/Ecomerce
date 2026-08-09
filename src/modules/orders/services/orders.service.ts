@@ -35,12 +35,21 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
     OrderStatus.CONFIRMED,
     OrderStatus.FAILED,
     OrderStatus.CANCELLED,
+    OrderStatus.REFUNDED,
   ],
-  [OrderStatus.CONFIRMED]: [OrderStatus.PROCESSING, OrderStatus.CANCELLED],
-  [OrderStatus.PROCESSING]: [OrderStatus.SHIPPED, OrderStatus.CANCELLED],
-  [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED],
-  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED],
-  [OrderStatus.COMPLETED]: [],
+  [OrderStatus.CONFIRMED]: [
+    OrderStatus.PROCESSING,
+    OrderStatus.CANCELLED,
+    OrderStatus.REFUNDED,
+  ],
+  [OrderStatus.PROCESSING]: [
+    OrderStatus.SHIPPED,
+    OrderStatus.CANCELLED,
+    OrderStatus.REFUNDED,
+  ],
+  [OrderStatus.SHIPPED]: [OrderStatus.DELIVERED, OrderStatus.REFUNDED],
+  [OrderStatus.DELIVERED]: [OrderStatus.COMPLETED, OrderStatus.REFUNDED],
+  [OrderStatus.COMPLETED]: [OrderStatus.REFUNDED],
   [OrderStatus.CANCELLED]: [],
   [OrderStatus.FAILED]: [],
   [OrderStatus.REFUNDED]: [],
@@ -271,7 +280,13 @@ export class OrdersService {
     dto: UpdateOrderStatusDto,
     changedByUserId?: string,
     changedByRole: string = 'ADMIN',
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
+    if (dto.status === OrderStatus.REFUNDED) {
+      throw new BadRequestException(
+        'Direct status transition to REFUNDED is not allowed. Refunds must be processed through the payment refund workflow.',
+      );
+    }
     return this.transitionOrder(
       orderId,
       dto.status,
@@ -279,6 +294,7 @@ export class OrdersService {
       changedByRole,
       'STATUS_UPDATE',
       dto.notes,
+      externalManager,
     );
   }
 
@@ -289,6 +305,7 @@ export class OrdersService {
     userId: string,
     orderId: string,
     notes?: string,
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
     const order = await this.orderRepository.findOne({
       where: { id: orderId, user: { id: userId } },
@@ -314,6 +331,7 @@ export class OrdersService {
       'CUSTOMER',
       'CUSTOMER_CANCEL',
       notes || 'Cancelled by customer.',
+      externalManager,
     );
   }
 
@@ -519,6 +537,7 @@ export class OrdersService {
   public async confirmPayment(
     orderId: string,
     transactionReference?: string,
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
     return this.transitionOrder(
       orderId,
@@ -527,6 +546,7 @@ export class OrdersService {
       'SYSTEM',
       'PAYMENT_SUCCESS',
       `Payment confirmed. Ref: ${transactionReference || 'N/A'}`,
+      externalManager,
     );
   }
 
@@ -536,6 +556,7 @@ export class OrdersService {
   public async failPayment(
     orderId: string,
     reason?: string,
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
     return this.transitionOrder(
       orderId,
@@ -544,13 +565,17 @@ export class OrdersService {
       'SYSTEM',
       'PAYMENT_FAILED',
       reason || 'Payment processing failed.',
+      externalManager,
     );
   }
 
   /**
    * Internal hook called when payment expires due to timeout.
    */
-  public async expirePendingPayment(orderId: string): Promise<OrderResponseDto> {
+  public async expirePendingPayment(
+    orderId: string,
+    externalManager?: EntityManager,
+  ): Promise<OrderResponseDto> {
     return this.transitionOrder(
       orderId,
       OrderStatus.FAILED,
@@ -558,6 +583,7 @@ export class OrdersService {
       'SYSTEM',
       'AUTO_EXPIRE',
       'Order payment window expired.',
+      externalManager,
     );
   }
 
@@ -567,6 +593,7 @@ export class OrdersService {
   public async refundPayment(
     orderId: string,
     reason?: string,
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
     return this.transitionOrder(
       orderId,
@@ -575,6 +602,7 @@ export class OrdersService {
       'SYSTEM',
       'REFUND_PROCESSED',
       reason || 'Order refunded.',
+      externalManager,
     );
   }
 
@@ -589,8 +617,9 @@ export class OrdersService {
     changedByRole: string = 'SYSTEM',
     changeReason?: string,
     notes?: string,
+    externalManager?: EntityManager,
   ): Promise<OrderResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const order = await manager.findOne(Order, {
         where: { id: orderId },
         relations: { orderItems: true, history: true, payment: true },
@@ -621,7 +650,8 @@ export class OrdersService {
         }
       } else if (
         targetStatus === OrderStatus.CANCELLED ||
-        targetStatus === OrderStatus.FAILED
+        targetStatus === OrderStatus.FAILED ||
+        targetStatus === OrderStatus.REFUNDED
       ) {
         if (order.status === OrderStatus.PENDING_PAYMENT) {
           for (const item of order.orderItems) {
@@ -633,17 +663,22 @@ export class OrdersService {
               );
             }
           }
-        } else if (order.status === OrderStatus.CONFIRMED) {
-          // If committed stock is cancelled, return stock to inventory
+        } else if (
+          order.status === OrderStatus.CONFIRMED ||
+          order.status === OrderStatus.PROCESSING
+        ) {
+          // If committed unfulfilled stock is cancelled or refunded, return stock to inventory
           for (const item of order.orderItems) {
             if (item.productVariantId) {
               await this.inventoryService.increaseStock(
                 item.productVariantId,
                 item.quantity,
+                manager,
               );
             }
           }
         }
+        // Note: For SHIPPED, DELIVERED, COMPLETED orders that are refunded, inventory remains untouched as stock was fulfilled.
       }
 
       order.status = targetStatus;
@@ -660,7 +695,12 @@ export class OrdersService {
       );
 
       return this.mapToOrderResponseDto(updatedOrder);
-    });
+    };
+
+    if (externalManager) {
+      return execute(externalManager);
+    }
+    return this.dataSource.transaction((manager) => execute(manager));
   }
 
   private validateTransition(

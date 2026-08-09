@@ -3,4 +3,5 @@ export enum WebhookStatus {
   PROCESSING = 'PROCESSING',
   PROCESSED = 'PROCESSED',
   FAILED = 'FAILED',
+  IGNORED = 'IGNORED',
 }

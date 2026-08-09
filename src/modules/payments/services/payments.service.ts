@@ -115,6 +115,7 @@ export class PaymentsService {
       await this.ordersService.confirmPayment(order.id, `COD-${order.orderNumber}`);
       payment.status = PaymentStatus.COMPLETED;
       payment.paidAt = new Date();
+      payment.razorpayOrderId = `COD-${order.orderNumber}`;
       payment.transactionReference = `COD-${order.orderNumber}`;
       await this.paymentRepository.save(payment);
 
@@ -142,6 +143,7 @@ export class PaymentsService {
     });
 
     // 6. Save Gateway Transaction Reference & Return Initialization Payload
+    payment.razorpayOrderId = gatewayOrder.gatewayOrderId;
     payment.transactionReference = gatewayOrder.gatewayOrderId;
     await this.paymentRepository.save(payment);
 
@@ -238,15 +240,24 @@ export class PaymentsService {
       );
     }
 
-    // 6. Complete Payment & Trigger Order Confirmation Hook
-    payment.status = PaymentStatus.COMPLETED;
-    payment.paidAt = new Date();
-    payment.transactionReference = dto.razorpayPaymentId;
-    payment.failureCode = undefined;
-    payment.failureReason = undefined as any;
+    // 6. Complete Payment & Trigger Order Confirmation Hook inside DB transaction
+    const savedPayment = await this.dataSource.transaction(async (manager) => {
+      payment.status = PaymentStatus.COMPLETED;
+      payment.paidAt = new Date();
+      payment.razorpayOrderId = dto.razorpayOrderId;
+      payment.razorpayPaymentId = dto.razorpayPaymentId;
+      payment.transactionReference = dto.razorpayPaymentId;
+      payment.failureCode = undefined;
+      payment.failureReason = undefined as any;
 
-    const savedPayment = await this.paymentRepository.save(payment);
-    await this.ordersService.confirmPayment(payment.order.id, dto.razorpayPaymentId);
+      const updated = await manager.save(Payment, payment);
+      await this.ordersService.confirmPayment(
+        payment.order.id,
+        dto.razorpayPaymentId,
+        manager,
+      );
+      return updated;
+    });
 
     return this.mapToPaymentResponseDto(savedPayment);
   }
@@ -269,61 +280,95 @@ export class PaymentsService {
     const eventId = payload.contains?.event_id || payload.event_id || payload.id;
     const eventType = payload.event;
 
-    // 1. Create Forensic Webhook Audit Entry
-    const webhookEvent = this.webhookEventRepository.create({
-      provider: PaymentProvider.RAZORPAY,
-      eventId,
-      eventType,
-      signature,
-      headers,
-      payload,
-      status: WebhookStatus.RECEIVED,
-      receivedAt: new Date(),
-    });
-    await this.webhookEventRepository.save(webhookEvent);
-
-    // 2. Verify Cryptographic Webhook HMAC Signature
-    const isValid = this.paymentGateway.verifyWebhookSignature(rawBody, signature);
-    if (!isValid) {
-      webhookEvent.status = WebhookStatus.FAILED;
-      webhookEvent.failureReason = 'Webhook signature verification failed.';
-      await this.webhookEventRepository.save(webhookEvent);
-      throw new BadRequestException('Invalid webhook signature.');
+    if (!eventId) {
+      throw new BadRequestException('Webhook payload missing event_id.');
     }
 
-    // 3. Idempotency Check (Prevent duplicate event processing)
-    if (eventId) {
-      const existingProcessed = await this.webhookEventRepository.findOne({
-        where: {
-          eventId,
-          status: WebhookStatus.PROCESSED,
-        },
+    // 1. Verify Cryptographic Webhook HMAC Signature
+    const isValid = this.paymentGateway.verifyWebhookSignature(rawBody, signature);
+
+    return this.dataSource.transaction(async (manager) => {
+      // 2. Pre-check for existing duplicate eventId in DB
+      const existingProcessed = await manager.findOne(WebhookEvent, {
+        where: { eventId },
       });
 
-      if (existingProcessed && existingProcessed.id !== webhookEvent.id) {
+      if (existingProcessed) {
         this.logger.log(`[Webhook] Duplicate event ${eventId} ignored.`);
-        webhookEvent.status = WebhookStatus.PROCESSED;
-        webhookEvent.failureReason = 'Duplicate webhook event ignored.';
-        await this.webhookEventRepository.save(webhookEvent);
-        return { status: 'PROCESSED', message: 'Duplicate event ignored.' };
+        return {
+          status: existingProcessed.status,
+          message: 'Duplicate webhook event ignored.',
+        };
       }
-    }
 
-    // 4. Process Gateway Event Payload
-    webhookEvent.status = WebhookStatus.PROCESSING;
-    await this.webhookEventRepository.save(webhookEvent);
+      // 3. Create Forensic Webhook Audit Entry
+      let webhookEvent = manager.create(WebhookEvent, {
+        provider: PaymentProvider.RAZORPAY,
+        eventId,
+        eventType,
+        signature,
+        headers,
+        payload,
+        status: isValid ? WebhookStatus.PROCESSING : WebhookStatus.FAILED,
+        failureReason: isValid ? undefined : 'Webhook signature verification failed.',
+        receivedAt: new Date(),
+      });
 
-    try {
+      try {
+        webhookEvent = await manager.save(WebhookEvent, webhookEvent);
+      } catch (err: any) {
+        const isDuplicateKeyError =
+          err.code === '23505' ||
+          err.code === 'ER_DUP_ENTRY' ||
+          (err.message &&
+            (err.message.includes('unique') ||
+              err.message.includes('duplicate') ||
+              err.message.includes('eventId')));
+
+        if (isDuplicateKeyError) {
+          this.logger.log(
+            `[Webhook] Concurrent duplicate event ${eventId} caught by unique constraint.`,
+          );
+          return { status: 'PROCESSED', message: 'Duplicate event ignored.' };
+        }
+        throw err;
+      }
+
+      if (!isValid) {
+        throw new BadRequestException('Invalid webhook signature.');
+      }
+
+      // 4. Validate handled event types
+      const handledEvents = [
+        'payment.captured',
+        'payment.authorized',
+        'payment.failed',
+        'refund.processed',
+      ];
+
+      if (!handledEvents.includes(eventType)) {
+        webhookEvent.status = WebhookStatus.IGNORED;
+        webhookEvent.processedAt = new Date();
+        await manager.save(WebhookEvent, webhookEvent);
+        return {
+          status: 'IGNORED',
+          message: `Unhandled webhook event type: ${eventType}`,
+        };
+      }
+
+      // 5. Process Gateway Event Payload
       if (eventType === 'payment.captured' || eventType === 'payment.authorized') {
         const paymentEntity = payload.payload?.payment?.entity;
         const razorpayOrderId = paymentEntity?.order_id;
         const razorpayPaymentId = paymentEntity?.id;
 
-        if (razorpayOrderId) {
-          const payment = await this.paymentRepository.findOne({
+        if (razorpayOrderId || razorpayPaymentId) {
+          const payment = await manager.findOne(Payment, {
             where: [
-              { transactionReference: razorpayOrderId },
-              { transactionReference: razorpayPaymentId },
+              ...(razorpayOrderId ? [{ razorpayOrderId }] : []),
+              ...(razorpayPaymentId ? [{ razorpayPaymentId }] : []),
+              ...(razorpayOrderId ? [{ transactionReference: razorpayOrderId }] : []),
+              ...(razorpayPaymentId ? [{ transactionReference: razorpayPaymentId }] : []),
             ],
             relations: { order: true },
           });
@@ -331,21 +376,30 @@ export class PaymentsService {
           if (payment && payment.status !== PaymentStatus.COMPLETED) {
             payment.status = PaymentStatus.COMPLETED;
             payment.paidAt = new Date();
+            if (razorpayOrderId) payment.razorpayOrderId = razorpayOrderId;
+            if (razorpayPaymentId) payment.razorpayPaymentId = razorpayPaymentId;
             payment.transactionReference = razorpayPaymentId || razorpayOrderId;
-            await this.paymentRepository.save(payment);
+            await manager.save(Payment, payment);
+
             await this.ordersService.confirmPayment(
               payment.order.id,
-              razorpayPaymentId,
+              razorpayPaymentId || razorpayOrderId,
+              manager,
             );
           }
         }
       } else if (eventType === 'payment.failed') {
         const paymentEntity = payload.payload?.payment?.entity;
         const razorpayOrderId = paymentEntity?.order_id;
+        const razorpayPaymentId = paymentEntity?.id;
 
-        if (razorpayOrderId) {
-          const payment = await this.paymentRepository.findOne({
-            where: { transactionReference: razorpayOrderId },
+        if (razorpayOrderId || razorpayPaymentId) {
+          const payment = await manager.findOne(Payment, {
+            where: [
+              ...(razorpayOrderId ? [{ razorpayOrderId }] : []),
+              ...(razorpayPaymentId ? [{ razorpayPaymentId }] : []),
+              ...(razorpayOrderId ? [{ transactionReference: razorpayOrderId }] : []),
+            ],
             relations: { order: true },
           });
 
@@ -354,10 +408,14 @@ export class PaymentsService {
             payment.failureCode = PaymentFailureCode.PAYMENT_DECLINED;
             payment.failureReason =
               paymentEntity?.error_description || 'Payment failed on gateway.';
-            await this.paymentRepository.save(payment);
+            if (razorpayOrderId) payment.razorpayOrderId = razorpayOrderId;
+            if (razorpayPaymentId) payment.razorpayPaymentId = razorpayPaymentId;
+            await manager.save(Payment, payment);
+
             await this.ordersService.failPayment(
               payment.order.id,
               payment.failureReason,
+              manager,
             );
           }
         }
@@ -366,17 +424,22 @@ export class PaymentsService {
         const razorpayPaymentId = refundEntity?.payment_id;
 
         if (razorpayPaymentId) {
-          const payment = await this.paymentRepository.findOne({
-            where: { transactionReference: razorpayPaymentId },
+          const payment = await manager.findOne(Payment, {
+            where: [
+              { razorpayPaymentId },
+              { transactionReference: razorpayPaymentId },
+            ],
             relations: { order: true },
           });
 
           if (payment && payment.status !== PaymentStatus.REFUNDED) {
             payment.status = PaymentStatus.REFUNDED;
-            await this.paymentRepository.save(payment);
+            await manager.save(Payment, payment);
+
             await this.ordersService.refundPayment(
               payment.order.id,
               'Refund processed via gateway webhook.',
+              manager,
             );
           }
         }
@@ -384,15 +447,10 @@ export class PaymentsService {
 
       webhookEvent.status = WebhookStatus.PROCESSED;
       webhookEvent.processedAt = new Date();
-      await this.webhookEventRepository.save(webhookEvent);
+      await manager.save(WebhookEvent, webhookEvent);
 
       return { status: 'PROCESSED', message: 'Webhook processed successfully.' };
-    } catch (err: any) {
-      webhookEvent.status = WebhookStatus.FAILED;
-      webhookEvent.failureReason = err.message;
-      await this.webhookEventRepository.save(webhookEvent);
-      throw err;
-    }
+    });
   }
 
   /**
@@ -404,7 +462,11 @@ export class PaymentsService {
   ): Promise<PaymentResponseDto> {
     // 1. Fetch Payment Record & Validate Status
     const payment = await this.paymentRepository.findOne({
-      where: { id: paymentId },
+      where: [
+        { id: paymentId },
+        { razorpayPaymentId: paymentId },
+        { transactionReference: paymentId },
+      ],
       relations: { order: true },
     });
 
@@ -414,23 +476,29 @@ export class PaymentsService {
 
     validatePaymentTransition(payment.status, PaymentStatus.REFUNDED);
 
-    // 2. Invoke Gateway Refund API (OUTSIDE DB Transaction)
+    // 2. Invoke Gateway Refund API (OUTSIDE DB Transaction, BEFORE DB state updates)
     if (payment.method !== PaymentMethods.CASH_ON_DELIVERY) {
       const amountInPaise = dto.amount ? toPaise(dto.amount) : undefined;
+      const refPaymentId =
+        payment.razorpayPaymentId || payment.transactionReference || payment.id;
       await this.paymentGateway.processRefund({
-        paymentId: payment.transactionReference || payment.id,
+        paymentId: refPaymentId,
         amountInPaise,
         reason: dto.reason,
       });
     }
 
-    // 3. Update Payment Status & Order Refund Hook
-    payment.status = PaymentStatus.REFUNDED;
-    const updatedPayment = await this.paymentRepository.save(payment);
+    // 3. Update Payment Status & Order Refund Hook inside isolated DB transaction
+    const savedPayment = await this.dataSource.transaction(async (manager) => {
+      payment.status = PaymentStatus.REFUNDED;
+      const updated = await manager.save(Payment, payment);
 
-    await this.ordersService.refundPayment(payment.order.id, dto.reason);
+      await this.ordersService.refundPayment(payment.order.id, dto.reason, manager);
 
-    return this.mapToPaymentResponseDto(updatedPayment);
+      return updated;
+    });
+
+    return this.mapToPaymentResponseDto(savedPayment);
   }
 
   /**
@@ -461,7 +529,12 @@ export class PaymentsService {
    */
   async getPaymentById(paymentId: string): Promise<PaymentResponseDto> {
     const payment = await this.paymentRepository.findOne({
-      where: [{ id: paymentId }, { transactionReference: paymentId }],
+      where: [
+        { id: paymentId },
+        { razorpayOrderId: paymentId },
+        { razorpayPaymentId: paymentId },
+        { transactionReference: paymentId },
+      ],
       relations: { order: true },
     });
 
@@ -496,7 +569,7 @@ export class PaymentsService {
 
     if (query.search) {
       qb.andWhere(
-        '(payment.transactionReference ILIKE :search OR order.orderNumber ILIKE :search OR payment.id::text ILIKE :search)',
+        '(payment.razorpayOrderId ILIKE :search OR payment.razorpayPaymentId ILIKE :search OR payment.transactionReference ILIKE :search OR order.orderNumber ILIKE :search OR payment.id::text ILIKE :search)',
         { search: `%${query.search}%` },
       );
     }
@@ -532,6 +605,8 @@ export class PaymentsService {
       status: payment.status,
       method: payment.method,
       amount: Number(payment.amount),
+      razorpayOrderId: payment.razorpayOrderId,
+      razorpayPaymentId: payment.razorpayPaymentId,
       transactionReference: payment.transactionReference,
       provider: payment.provider,
       paidAt: payment.paidAt,

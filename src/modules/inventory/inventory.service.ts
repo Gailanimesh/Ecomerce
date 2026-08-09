@@ -222,8 +222,9 @@ export class InventoryService {
   async adjustStock(
     variantId: string,
     dto: AdjustStockDto,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.dataSource.transaction(async (manager) => {
+    const execute = async (manager: EntityManager) => {
       const inventory = await manager.findOne(Inventory, {
         where: { variant: { id: variantId } },
         relations: { variant: true },
@@ -250,27 +251,42 @@ export class InventoryService {
 
       const saved = await manager.save(inventory);
       return this.mapToResponseDto(saved);
-    });
+    };
+
+    if (externalManager) {
+      return execute(externalManager);
+    }
+    return this.dataSource.transaction((manager) => execute(manager));
   }
 
   async increaseStock(
     variantId: string,
     quantity: number,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.adjustStock(variantId, {
-      type: AdjustmentType.INCREASE,
-      quantity,
-    });
+    return this.adjustStock(
+      variantId,
+      {
+        type: AdjustmentType.INCREASE,
+        quantity,
+      },
+      externalManager,
+    );
   }
 
   async decreaseStock(
     variantId: string,
     quantity: number,
+    externalManager?: EntityManager,
   ): Promise<InventoryResponseDto> {
-    return this.adjustStock(variantId, {
-      type: AdjustmentType.DECREASE,
-      quantity,
-    });
+    return this.adjustStock(
+      variantId,
+      {
+        type: AdjustmentType.DECREASE,
+        quantity,
+      },
+      externalManager,
+    );
   }
 
   async reserveStock(

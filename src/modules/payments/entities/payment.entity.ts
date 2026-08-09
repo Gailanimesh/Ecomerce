@@ -36,7 +36,17 @@ export class Payment extends BaseEntity {
   @Column({
     nullable: true,
   })
-  transactionReference!: string;
+  razorpayOrderId?: string;
+
+  @Column({
+    nullable: true,
+  })
+  razorpayPaymentId?: string;
+
+  @Column({
+    nullable: true,
+  })
+  transactionReference?: string;
 
   @Column({
     type: 'enum',

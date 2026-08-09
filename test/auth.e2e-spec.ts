@@ -87,11 +87,11 @@ describe('Authentication Module (e2e)', () => {
       expect(response.body).toHaveProperty('accessToken');
       accessTokenA = response.body.accessToken;
 
-      const setCookieHeaders = response.headers['set-cookie'];
+      const setCookieHeaders = response.headers['set-cookie'] as unknown as string[];
       expect(setCookieHeaders).toBeDefined();
       const cookie = setCookieHeaders.find((c: string) => c.startsWith('refreshToken='));
       expect(cookie).toBeDefined();
-      cookieA = cookie;
+      cookieA = cookie!;
     });
 
     it('should login on Device B (Session B)', async () => {
@@ -106,11 +106,11 @@ describe('Authentication Module (e2e)', () => {
       expect(response.body).toHaveProperty('accessToken');
       accessTokenB = response.body.accessToken;
 
-      const setCookieHeaders = response.headers['set-cookie'];
+      const setCookieHeaders = response.headers['set-cookie'] as unknown as string[];
       expect(setCookieHeaders).toBeDefined();
       const cookie = setCookieHeaders.find((c: string) => c.startsWith('refreshToken='));
       expect(cookie).toBeDefined();
-      cookieB = cookie;
+      cookieB = cookie!;
     });
 
     it('should fetch user profile (/api/v1/auth/me) with access tokens showing separate sessionIds', async () => {
@@ -161,7 +161,7 @@ describe('Authentication Module (e2e)', () => {
 
       expect(response.body).toHaveProperty('message', 'Logged out successfully');
 
-      const setCookieHeaders = response.headers['set-cookie'];
+      const setCookieHeaders = response.headers['set-cookie'] as unknown as string[];
       expect(setCookieHeaders).toBeDefined();
       const clearedCookie = setCookieHeaders.find((c: string) => c.startsWith('refreshToken=;'));
       expect(clearedCookie).toBeDefined();
@@ -200,9 +200,9 @@ describe('Authentication Module (e2e)', () => {
         .expect(201);
 
       accessTokenA = response.body.accessToken;
-      const setCookieHeaders = response.headers['set-cookie'];
+      const setCookieHeaders = response.headers['set-cookie'] as unknown as string[];
       const cookie = setCookieHeaders.find((c: string) => c.startsWith('refreshToken='));
-      cookieA = cookie;
+      cookieA = cookie!;
     });
 
     it('should logout all devices from Device A', async () => {

@@ -12,11 +12,10 @@ export class WebhookEvent extends BaseEntity {
   })
   provider!: PaymentProvider;
 
-  @Index()
   @Column({
-    nullable: true,
+    unique: true,
   })
-  eventId?: string;
+  eventId!: string;
 
   @Column({
     nullable: true,
