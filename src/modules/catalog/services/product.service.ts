@@ -411,17 +411,20 @@ export class ProductService {
         createdAt: v.createdAt,
         updatedAt: v.updatedAt,
       })) || [],
-      media: product.media?.map((m) => ({
-        id: m.id,
-        url: m.url,
-        slug: m.slug,
-        type: m.type,
-        altText: m.altText,
-        displayOrder: m.displayOrder,
-        isActive: m.isActive,
-        createdAt: m.createdAt,
-        updatedAt: m.updatedAt,
-      })) || [],
+      media: product.media
+        ?.slice()
+        .sort((a, b) => a.displayOrder - b.displayOrder)
+        .map((m) => ({
+          id: m.id,
+          url: m.url,
+          slug: m.slug,
+          type: m.type,
+          altText: m.altText,
+          displayOrder: m.displayOrder,
+          isActive: m.isActive,
+          createdAt: m.createdAt,
+          updatedAt: m.updatedAt,
+        })) || [],
     };
   }
 }

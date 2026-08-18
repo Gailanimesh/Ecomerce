@@ -8,6 +8,12 @@ export class ProductMediaResponseDto {
   })
   id!: string;
 
+  @ApiPropertyOptional({
+    description: 'Associated product UUID',
+    example: 'e5f6a7b8-9012-34cd-ef56-789012345678',
+  })
+  productId?: string;
+
   @ApiProperty({
     description: 'Media asset URL',
     example: 'https://cdn.example.com/products/nike-air-max-1.jpg',

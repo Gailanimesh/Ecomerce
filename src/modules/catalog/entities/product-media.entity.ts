@@ -19,6 +19,11 @@ export class ProductMedia extends BaseEntity {
   @Column()
   url!: string;
 
+  @Column({
+    nullable: true,
+  })
+  publicId?: string;
+
   @Index()
   @Column({ unique: true })
   slug!: string;

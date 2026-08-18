@@ -8,11 +8,15 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { CatalogController } from './catalog.controller';
+import { ProductMediaController } from './controllers/product-media.controller';
 
 import { SlugService } from './services/slug.service';
 import { CategoryService } from './services/category.service';
 import { BrandService } from './services/brand.service';
 import { ProductService } from './services/product.service';
+import { ProductMediaService } from './services/product-media.service';
+import { MediaFileValidator } from './validators/media-file.validator';
+import { MediaIntegrationModule } from '../../integrations/media/media-integration.module';
 
 @Module({
   imports: [
@@ -23,9 +27,24 @@ import { ProductService } from './services/product.service';
       ProductVariant,
       ProductMedia,
     ]),
+    MediaIntegrationModule,
   ],
-  controllers: [CatalogController],
-  providers: [SlugService, CategoryService, BrandService, ProductService],
-  exports: [SlugService, CategoryService, BrandService, ProductService],
+  controllers: [CatalogController, ProductMediaController],
+  providers: [
+    SlugService,
+    CategoryService,
+    BrandService,
+    ProductService,
+    ProductMediaService,
+    MediaFileValidator,
+  ],
+  exports: [
+    SlugService,
+    CategoryService,
+    BrandService,
+    ProductService,
+    ProductMediaService,
+    MediaFileValidator,
+  ],
 })
 export class CatalogModule {}
