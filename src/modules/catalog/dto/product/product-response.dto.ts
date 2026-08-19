@@ -79,6 +79,15 @@ export class ProductResponseDto {
     type: [ProductMediaResponseDto],
   })
   media?: ProductMediaResponseDto[];
+
+  @ApiPropertyOptional({
+    description: 'Rating summary overview calculated from approved customer reviews',
+    example: { averageRating: 4.5, reviewCount: 28 },
+  })
+  rating?: {
+    averageRating: number;
+    reviewCount: number;
+  };
 }
 
 export class PaginatedProductResponseDto {

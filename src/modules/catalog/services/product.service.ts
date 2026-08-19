@@ -352,7 +352,8 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    return this.mapToProductResponseDto(product);
+    const rating = await this.getProductRatingOverview(product.id);
+    return this.mapToProductResponseDto(product, rating);
   }
 
   async getProductBySlug(slug: string, isAdmin = false): Promise<ProductResponseDto> {
@@ -369,10 +370,31 @@ export class ProductService {
       throw new NotFoundException('Product not found');
     }
 
-    return this.mapToProductResponseDto(product);
+    const rating = await this.getProductRatingOverview(product.id);
+    return this.mapToProductResponseDto(product, rating);
   }
 
-  private mapToProductResponseDto(product: Product): ProductResponseDto {
+  private async getProductRatingOverview(
+    productId: string,
+  ): Promise<{ averageRating: number; reviewCount: number }> {
+    try {
+      const raw = await this.dataSource.query(
+        `SELECT COUNT(id) as count, AVG(rating) as avg FROM reviews WHERE "productId" = $1 AND status = 'APPROVED'`,
+        [productId],
+      );
+      const reviewCount = parseInt(raw[0]?.count || '0', 10);
+      const averageRating =
+        reviewCount > 0 ? parseFloat(parseFloat(raw[0]?.avg || '0').toFixed(1)) : 0;
+      return { averageRating, reviewCount };
+    } catch {
+      return { averageRating: 0, reviewCount: 0 };
+    }
+  }
+
+  private mapToProductResponseDto(
+    product: Product,
+    rating?: { averageRating: number; reviewCount: number },
+  ): ProductResponseDto {
     return {
       id: product.id,
       name: product.name,
@@ -382,6 +404,7 @@ export class ProductService {
       status: product.status,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
+      rating,
       brand: product.brand ? {
         id: product.brand.id,
         name: product.brand.name,
