@@ -18,6 +18,8 @@ import { ProductStatus } from '../catalog/enum/productstaus.enum';
 
 import { InventoryService } from '../inventory/inventory.service';
 import { ProductService } from '../catalog/services/product.service';
+import { CouponsService } from '../coupons/services/coupons.service';
+import { CartCouponPreviewDto } from '../coupons/dto/coupon-response.dto';
 
 import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
@@ -42,6 +44,7 @@ export class CartService {
     private readonly inventoryRepository: Repository<Inventory>,
     private readonly inventoryService: InventoryService,
     private readonly productService: ProductService,
+    private readonly couponsService: CouponsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -514,5 +517,42 @@ export class CartService {
       createdAt: cart.createdAt,
       updatedAt: cart.updatedAt,
     };
+  }
+
+  /**
+   * Previews coupon discount against the authenticated user's active cart.
+   * Note: This is an authoritative preview; checkout revalidates the coupon before order creation.
+   */
+  async previewCoupon(
+    userId: string,
+    code: string,
+  ): Promise<CartCouponPreviewDto> {
+    const cart = await this.getCart(userId);
+    if (!cart.items || cart.items.length === 0) {
+      throw new BadRequestException('Cannot apply coupon to an empty cart.');
+    }
+
+    const result = await this.couponsService.validateAndCalculateDiscount(
+      userId,
+      code,
+      cart.summary.subtotal,
+    );
+
+    return {
+      couponCode: result.coupon.code,
+      description: result.coupon.description,
+      discountType: result.coupon.discountType,
+      discountValue: Number(result.coupon.discountValue),
+      discount: result.discountNum,
+      subtotal: cart.summary.subtotal,
+      totalAfterDiscount: result.totalAfterDiscountNum,
+    };
+  }
+
+  /**
+   * Clears coupon preview and returns fresh cart details.
+   */
+  async removeCouponPreview(userId: string): Promise<CartResponseDto> {
+    return this.getCart(userId);
   }
 }

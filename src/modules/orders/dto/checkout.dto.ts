@@ -27,4 +27,12 @@ export class CheckoutDto {
   @IsString()
   @IsOptional()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optional coupon code (case-insensitive) to apply authoritative discount to this checkout.',
+    example: 'SAVE20',
+  })
+  @IsString()
+  @IsOptional()
+  couponCode?: string;
 }

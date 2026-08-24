@@ -26,6 +26,8 @@ import { AddCartItemDto } from './dto/add-cart-item.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
 import { CartResponseDto } from './dto/cart-response.dto';
 import { CheckoutPreparationDto } from './dto/checkout-preparation.dto';
+import { ApplyCouponDto } from '../coupons/dto/apply-coupon.dto';
+import { CartCouponPreviewDto } from '../coupons/dto/coupon-response.dto';
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -160,6 +162,50 @@ export class CartController {
   @Delete()
   clearCart(@CurrentUser() user: AuthenticatedUser): Promise<CartResponseDto> {
     return this.cartService.clearCart(user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Preview coupon discount on active cart',
+    description:
+      'Validates a coupon code against current active cart items and calculates authoritative preview discount. Note: This preview does not consume the coupon; checkout re-evaluates the coupon before order creation.',
+  })
+  @ApiOkResponse({
+    type: CartCouponPreviewDto,
+    description: 'Coupon preview calculation retrieved successfully.',
+  })
+  @ApiBadRequestResponse({
+    description: 'Coupon is inactive, expired, not yet valid, usage limit reached, or cart does not meet minimum order requirement.',
+  })
+  @ApiNotFoundResponse({
+    description: 'Coupon code does not exist.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid Bearer JWT access token.',
+  })
+  @Post('coupon')
+  previewCoupon(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ApplyCouponDto,
+  ): Promise<CartCouponPreviewDto> {
+    return this.cartService.previewCoupon(user.id, dto.code);
+  }
+
+  @ApiOperation({
+    summary: 'Remove coupon preview from cart',
+    description: 'Clears any applied coupon preview and returns fresh cart totals.',
+  })
+  @ApiOkResponse({
+    type: CartResponseDto,
+    description: 'Cart details without coupon retrieved successfully.',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid Bearer JWT access token.',
+  })
+  @Delete('coupon')
+  removeCouponPreview(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<CartResponseDto> {
+    return this.cartService.removeCouponPreview(user.id);
   }
 
   @ApiOperation({

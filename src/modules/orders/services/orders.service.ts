@@ -13,6 +13,7 @@ import { OrderHistory } from '../entities/order-history.entity';
 import { OrderStatus } from '../enums/order-status.enum';
 import { OrderNumberService } from './order-number.service';
 import { InventoryService } from '../../inventory/inventory.service';
+import { CouponsService } from '../../coupons/services/coupons.service';
 import { Cart } from '../../cart/entities/cart.entity';
 import { CartItem } from '../../cart/entities/cart-item.entity';
 import { CartStatus } from '../../cart/enums/cart-status.enum';
@@ -70,6 +71,7 @@ export class OrdersService {
     private readonly addressRepository: Repository<Address>,
     private readonly orderNumberService: OrderNumberService,
     private readonly inventoryService: InventoryService,
+    private readonly couponsService: CouponsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -189,8 +191,31 @@ export class OrdersService {
       const subtotal = subtotalNum.toFixed(2);
       const shippingFee = (0).toFixed(2);
       const tax = (0).toFixed(2);
-      const discount = (0).toFixed(2);
-      const grandTotal = subtotalNum.toFixed(2);
+      let discount = (0).toFixed(2);
+      let appliedCouponCode: string | null = null;
+
+      // Authoritative Coupon Validation during checkout
+      if (dto.couponCode) {
+        const couponResult =
+          await this.couponsService.validateAndCalculateDiscount(
+            userId,
+            dto.couponCode,
+            subtotalNum,
+            manager,
+          );
+        discount = couponResult.discountFormatted;
+        appliedCouponCode = couponResult.coupon.code;
+      }
+
+      const discountedSubtotal = Math.max(
+        0,
+        subtotalNum - parseFloat(discount),
+      );
+      const grandTotal = (
+        discountedSubtotal +
+        parseFloat(shippingFee) +
+        parseFloat(tax)
+      ).toFixed(2);
 
       // 5. Validate & Reserve Inventory (Pessimistic Locking owned by InventoryService)
       for (const item of cart.cartItems) {
@@ -215,6 +240,7 @@ export class OrdersService {
         status: OrderStatus.PENDING_PAYMENT,
         subtotal,
         discount,
+        couponCode: appliedCouponCode,
         tax,
         shippingFee,
         grandTotal,
@@ -622,7 +648,7 @@ export class OrdersService {
     const execute = async (manager: EntityManager) => {
       const order = await manager.findOne(Order, {
         where: { id: orderId },
-        relations: { orderItems: true, history: true, payment: true },
+        relations: { orderItems: true, history: true, payment: true, user: true },
       });
 
       if (!order) {
@@ -643,6 +669,20 @@ export class OrdersService {
               await this.inventoryService.commitReservation(
                 item.productVariantId,
                 item.quantity,
+                manager,
+              );
+            }
+          }
+
+          // Atomically consume coupon usage on payment confirmation
+          if (order.couponCode) {
+            const customerId = order.user?.id;
+            if (customerId) {
+              await this.couponsService.consumeCoupon(
+                customerId,
+                order.id,
+                order.couponCode,
+                order.discount,
                 manager,
               );
             }

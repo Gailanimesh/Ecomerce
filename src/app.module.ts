@@ -10,6 +10,7 @@ import { CartModule } from './modules/cart/cart.module';
 import { OrdersModule } from './modules/orders/orders.module';
 import { PaymentsModule } from './modules/payments/payments.module';
 import { PromotionsModule } from './modules/promotions/promotions.module';
+import { CouponsModule } from './modules/coupons/coupons.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
 import { WishlistModule } from './modules/wishlist/wishlist.module';
 import { ShippingModule } from './modules/shipping/shipping.module';
@@ -57,6 +58,7 @@ import { CorrelationIdInterceptor } from './common/interceptors/correlation-id.i
     OrdersModule,
     PaymentsModule,
     PromotionsModule,
+    CouponsModule,
     ReviewsModule,
     WishlistModule,
     ShippingModule,

@@ -45,6 +45,13 @@ export class Order extends BaseEntity {
   discount!: string;
 
   @Column({
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  couponCode?: string | null;
+
+  @Column({
     type: 'decimal',
     precision: 10,
     scale: 2,

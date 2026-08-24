@@ -9,6 +9,7 @@ import { Inventory } from '../inventory/entities/inventory.entity';
 
 import { CatalogModule } from '../catalog/catalog.module';
 import { InventoryModule } from '../inventory/inventory.module';
+import { CouponsModule } from '../coupons/coupons.module';
 
 import { CartService } from './cart.service';
 import { CartController } from './cart.controller';
@@ -24,6 +25,7 @@ import { CartController } from './cart.controller';
     ]),
     CatalogModule,
     InventoryModule,
+    CouponsModule,
   ],
   controllers: [CartController],
   providers: [CartService],
