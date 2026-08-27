@@ -9,6 +9,7 @@ import { Order } from '../orders/entities/order.entity';
 import { User } from '../users/entities/user.entity';
 
 import { ReviewsService } from './services/reviews.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { ReviewsController } from './controllers/reviews.controller';
 import { AdminReviewsController } from './controllers/admin-reviews.controller';
 
@@ -22,6 +23,7 @@ import { AdminReviewsController } from './controllers/admin-reviews.controller';
       Order,
       User,
     ]),
+    NotificationsModule,
   ],
   controllers: [ReviewsController, AdminReviewsController],
   providers: [ReviewsService],

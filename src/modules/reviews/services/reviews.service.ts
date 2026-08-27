@@ -28,6 +28,7 @@ import {
   AdminReviewResponseDto,
   PaginatedAdminReviewsResponseDto,
 } from '../dto/review-response.dto';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 
 @Injectable()
 export class ReviewsService {
@@ -40,6 +41,7 @@ export class ReviewsService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   // ==========================================
@@ -398,7 +400,7 @@ export class ReviewsService {
   ): Promise<AdminReviewResponseDto> {
     const review = await this.reviewRepository.findOne({
       where: { id: reviewId },
-      relations: { user: true },
+      relations: { user: true, product: true },
     });
 
     if (!review) {
@@ -411,6 +413,32 @@ export class ReviewsService {
     review.moderatedAt = new Date();
 
     const saved = await this.reviewRepository.save(review);
+
+    // Send customer in-app notification & dispatch email post-moderation
+    if (review.user && review.product) {
+      if (dto.status === ReviewStatus.APPROVED) {
+        await this.notificationsService.notifyReviewApproved(
+          { id: saved.id, rating: saved.rating },
+          { id: review.product.id, name: review.product.name },
+          {
+            id: review.user.id,
+            email: review.user.email,
+            fullName: review.user.fullName,
+          },
+        );
+      } else if (dto.status === ReviewStatus.REJECTED) {
+        await this.notificationsService.notifyReviewRejected(
+          { id: saved.id },
+          { id: review.product.id, name: review.product.name },
+          {
+            id: review.user.id,
+            email: review.user.email,
+            fullName: review.user.fullName,
+          },
+          dto.reason,
+        );
+      }
+    }
 
     this.logger.log(
       `Admin '${adminUserId}' moderated review '${reviewId}' to '${dto.status}'.`,

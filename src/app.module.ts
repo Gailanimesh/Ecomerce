@@ -25,6 +25,7 @@ import authConfig from './config/auth.config';
 import databaseConfig from './config/database.config';
 import paymentConfig from './config/payment.config';
 import cloudinaryConfig from './config/cloudinary.config';
+import emailConfig from './config/email.config';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { CorrelationIdInterceptor } from './common/interceptors/correlation-id.interceptor';
 
@@ -34,7 +35,7 @@ import { CorrelationIdInterceptor } from './common/interceptors/correlation-id.i
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: [`.env.${process.env.NODE_ENV || 'development'}`, '.env'],
-      load: [appConfig, authConfig, databaseConfig, paymentConfig, cloudinaryConfig],
+      load: [appConfig, authConfig, databaseConfig, paymentConfig, cloudinaryConfig, emailConfig],
     }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],

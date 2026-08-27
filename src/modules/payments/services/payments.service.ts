@@ -19,6 +19,7 @@ import { PaymentProvider } from '../enums/payment-provider.enum';
 import { WebhookStatus } from '../enums/webhook-status.enum';
 
 import { OrdersService } from '../../orders/services/orders.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { PAYMENT_GATEWAY } from '../../../integrations/payments/interfaces/payment-gateway.interface';
 import type { IPaymentGateway } from '../../../integrations/payments/interfaces/payment-gateway.interface';
 import { validatePaymentTransition } from './payment-state-machine';
@@ -47,6 +48,7 @@ export class PaymentsService {
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
     private readonly ordersService: OrdersService,
+    private readonly notificationsService: NotificationsService,
     @Inject(PAYMENT_GATEWAY)
     private readonly paymentGateway: any,
     private readonly dataSource: DataSource,
@@ -264,6 +266,29 @@ export class PaymentsService {
         dto.razorpayPaymentId,
         manager,
       );
+
+      if (payment.order?.user) {
+        await this.notificationsService.notifyPaymentCompleted(
+          {
+            id: payment.id,
+            paymentMethod: payment.method,
+            transactionReference: dto.razorpayPaymentId,
+            amount: payment.amount,
+          },
+          {
+            id: payment.order.id,
+            orderNumber: payment.order.orderNumber,
+            grandTotal: payment.order.grandTotal,
+          },
+          {
+            id: payment.order.user.id,
+            email: payment.order.user.email,
+            fullName: payment.order.user.fullName,
+          },
+          manager,
+        );
+      }
+
       return updated;
     });
 
@@ -385,7 +410,7 @@ export class PaymentsService {
               ...(razorpayOrderId ? [{ transactionReference: razorpayOrderId }] : []),
               ...(razorpayPaymentId ? [{ transactionReference: razorpayPaymentId }] : []),
             ],
-            relations: { order: true },
+            relations: { order: { user: true } },
           });
 
           if (payment && payment.status !== PaymentStatus.COMPLETED) {
@@ -401,6 +426,28 @@ export class PaymentsService {
               razorpayPaymentId || razorpayOrderId,
               manager,
             );
+
+            if (payment.order?.user) {
+              await this.notificationsService.notifyPaymentCompleted(
+                {
+                  id: payment.id,
+                  paymentMethod: payment.method,
+                  transactionReference: payment.transactionReference,
+                  amount: payment.amount,
+                },
+                {
+                  id: payment.order.id,
+                  orderNumber: payment.order.orderNumber,
+                  grandTotal: payment.order.grandTotal,
+                },
+                {
+                  id: payment.order.user.id,
+                  email: payment.order.user.email,
+                  fullName: payment.order.user.fullName,
+                },
+                manager,
+              );
+            }
           }
         }
       } else if (eventType === 'payment.failed') {
@@ -414,8 +461,9 @@ export class PaymentsService {
               ...(razorpayOrderId ? [{ razorpayOrderId }] : []),
               ...(razorpayPaymentId ? [{ razorpayPaymentId }] : []),
               ...(razorpayOrderId ? [{ transactionReference: razorpayOrderId }] : []),
+              ...(razorpayPaymentId ? [{ transactionReference: razorpayPaymentId }] : []),
             ],
-            relations: { order: true },
+            relations: { order: { user: true } },
           });
 
           if (payment && payment.status === PaymentStatus.PENDING) {
@@ -432,6 +480,27 @@ export class PaymentsService {
               payment.failureReason,
               manager,
             );
+
+            if (payment.order?.user) {
+              await this.notificationsService.notifyPaymentFailed(
+                {
+                  id: payment.id,
+                  amount: payment.amount,
+                },
+                {
+                  id: payment.order.id,
+                  orderNumber: payment.order.orderNumber,
+                  grandTotal: payment.order.grandTotal,
+                },
+                {
+                  id: payment.order.user.id,
+                  email: payment.order.user.email,
+                  fullName: payment.order.user.fullName,
+                },
+                payment.failureReason,
+                manager,
+              );
+            }
           }
         }
       } else if (eventType === 'refund.processed') {
@@ -444,7 +513,7 @@ export class PaymentsService {
               { razorpayPaymentId },
               { transactionReference: razorpayPaymentId },
             ],
-            relations: { order: true },
+            relations: { order: { user: true } },
           });
 
           if (payment && payment.status !== PaymentStatus.REFUNDED) {
@@ -456,6 +525,21 @@ export class PaymentsService {
               'Refund processed via gateway webhook.',
               manager,
             );
+
+            if (payment.order?.user) {
+              await this.notificationsService.notifyPaymentRefunded(
+                { id: payment.id },
+                { id: payment.order.id, orderNumber: payment.order.orderNumber },
+                {
+                  id: payment.order.user.id,
+                  email: payment.order.user.email,
+                  fullName: payment.order.user.fullName,
+                },
+                payment.amount,
+                'Refund processed via gateway webhook.',
+                manager,
+              );
+            }
           }
         }
       }
@@ -482,7 +566,7 @@ export class PaymentsService {
         { razorpayPaymentId: paymentId },
         { transactionReference: paymentId },
       ],
-      relations: { order: true },
+      relations: { order: { user: true } },
     });
 
     if (!payment) {
@@ -509,6 +593,21 @@ export class PaymentsService {
       const updated = await manager.save(Payment, payment);
 
       await this.ordersService.refundPayment(payment.order.id, dto.reason, manager);
+
+      if (payment.order?.user) {
+        await this.notificationsService.notifyPaymentRefunded(
+          { id: payment.id },
+          { id: payment.order.id, orderNumber: payment.order.orderNumber },
+          {
+            id: payment.order.user.id,
+            email: payment.order.user.email,
+            fullName: payment.order.user.fullName,
+          },
+          dto.amount || payment.amount,
+          dto.reason || 'Admin refund issued',
+          manager,
+        );
+      }
 
       return updated;
     });

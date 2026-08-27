@@ -6,6 +6,7 @@ import { WebhookEvent } from './entities/webhook-event.entity';
 import { Order } from '../orders/entities/order.entity';
 
 import { OrdersModule } from '../orders/orders.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { PaymentsIntegrationModule } from '../../integrations/payments/payments-integration.module';
 
 import { PaymentsService } from './services/payments.service';
@@ -17,6 +18,7 @@ import { AdminPaymentsController } from './admin-payments.controller';
   imports: [
     TypeOrmModule.forFeature([Payment, WebhookEvent, Order]),
     OrdersModule,
+    NotificationsModule,
     PaymentsIntegrationModule,
   ],
   controllers: [PaymentsController, AdminPaymentsController],

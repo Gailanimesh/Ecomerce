@@ -14,6 +14,7 @@ import { OrderStatus } from '../enums/order-status.enum';
 import { OrderNumberService } from './order-number.service';
 import { InventoryService } from '../../inventory/inventory.service';
 import { CouponsService } from '../../coupons/services/coupons.service';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 import { Cart } from '../../cart/entities/cart.entity';
 import { CartItem } from '../../cart/entities/cart-item.entity';
 import { CartStatus } from '../../cart/enums/cart-status.enum';
@@ -72,6 +73,7 @@ export class OrdersService {
     private readonly orderNumberService: OrderNumberService,
     private readonly inventoryService: InventoryService,
     private readonly couponsService: CouponsService,
+    private readonly notificationsService: NotificationsService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -106,6 +108,7 @@ export class OrdersService {
       // 2. Validate Address ownership
       const address = await manager.findOne(Address, {
         where: { id: dto.addressId, user: { id: userId } },
+        relations: { user: true },
       });
 
       if (!address) {
@@ -285,7 +288,27 @@ export class OrdersService {
       // 10. Clear Active Cart Items
       await manager.delete(CartItem, { cart: { id: cart.id } });
 
-      // 11. Format & Return Response
+      // 11. Send in-app notification & dispatch order confirmation email post-commit
+      const customer = address.user as any;
+      await this.notificationsService.notifyOrderCreated(
+        {
+          id: savedOrder.id,
+          orderNumber: savedOrder.orderNumber,
+          subtotal: savedOrder.subtotal,
+          discount: savedOrder.discount,
+          shippingFee: savedOrder.shippingFee,
+          grandTotal: savedOrder.grandTotal,
+          items: orderItems,
+        },
+        {
+          id: userId,
+          email: customer?.email || '',
+          fullName: customer?.fullName || address.user?.fullName || 'Valued Customer',
+        },
+        manager,
+      );
+
+      // 12. Format & Return Response
       const responseOrder = this.mapToOrderResponseDto(savedOrder);
 
       return {
@@ -721,6 +744,7 @@ export class OrdersService {
         // Note: For SHIPPED, DELIVERED, COMPLETED orders that are refunded, inventory remains untouched as stock was fulfilled.
       }
 
+      const previousStatus = order.status;
       order.status = targetStatus;
       const updatedOrder = await manager.save(Order, order);
 
@@ -733,6 +757,24 @@ export class OrdersService {
         changeReason,
         notes,
       );
+
+      if (order.user) {
+        await this.notificationsService.notifyOrderStatusUpdated(
+          {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            notes,
+          },
+          previousStatus,
+          targetStatus,
+          {
+            id: order.user.id,
+            email: order.user.email,
+            fullName: order.user.fullName || order.shippingName,
+          },
+          manager,
+        );
+      }
 
       return this.mapToOrderResponseDto(updatedOrder);
     };

@@ -15,6 +15,7 @@ import { OrdersService } from './services/orders.service';
 import { OrderNumberService } from './services/order-number.service';
 import { InventoryService } from '../inventory/inventory.service';
 import { CouponsModule } from '../coupons/coupons.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { OrdersController } from './orders.controller';
 
 @Module({
@@ -31,6 +32,7 @@ import { OrdersController } from './orders.controller';
       ProductVariant,
     ]),
     CouponsModule,
+    NotificationsModule,
   ],
   controllers: [OrdersController],
   providers: [OrdersService, OrderNumberService, InventoryService],

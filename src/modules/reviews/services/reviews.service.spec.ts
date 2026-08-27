@@ -14,6 +14,7 @@ import { OrderItem } from '../../orders/entities/order-item.entity';
 import { ReviewStatus } from '../enums/review-status.enum';
 import { RoleEnum } from '../../../common/enums/roles.enum';
 import { ReviewSortBy, SortOrder } from '../dto/review-query.dto';
+import { NotificationsService } from '../../notifications/services/notifications.service';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
@@ -67,6 +68,11 @@ describe('ReviewsService', () => {
       createQueryBuilder: jest.fn(),
     };
 
+    const mockNotificationsService = {
+      notifyReviewApproved: jest.fn().mockResolvedValue(undefined),
+      notifyReviewRejected: jest.fn().mockResolvedValue(undefined),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         ReviewsService,
@@ -81,6 +87,10 @@ describe('ReviewsService', () => {
         {
           provide: getRepositoryToken(OrderItem),
           useValue: mockOrderItemRepo,
+        },
+        {
+          provide: NotificationsService,
+          useValue: mockNotificationsService,
         },
       ],
     }).compile();
