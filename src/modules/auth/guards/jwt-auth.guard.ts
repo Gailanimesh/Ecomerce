@@ -11,19 +11,21 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     }
 
     override canActivate(context: any) {
+        // We let passport run to try parsing the token, 
+        // but we handle the public logic inside handleRequest to avoid throwing if missing.
+        return super.canActivate(context);
+    }
+
+    override handleRequest(error: unknown, user: unknown, info: unknown, context: any): any {
         const isPublic = this.reflector.getAllAndOverride<boolean>(AUTH_PUBLIC_KEY, [
             context.getHandler(),
             context.getClass(),
         ]);
 
         if (isPublic) {
-            return true;
+            return user || null; // Allow public access, inject user if valid
         }
 
-        return super.canActivate(context);
-    }
-
-    override handleRequest(error: unknown, user: unknown): any{
         if (error || !user) {
             throw error instanceof UnauthorizedException
                 ? error

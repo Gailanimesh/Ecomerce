@@ -1,0 +1,2313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Commerce Integration Cockpit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+  <style>
+    :root {
+      --bg-base: #0f172a;
+      --bg-surface: #1e293b;
+      --bg-card: #273548;
+      --border-color: #3b4d66;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --secondary: #06b6d4;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Layout Components */
+    #sidebar {
+      width: 270px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .brand-header {
+      padding: 18px 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--secondary);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .nav-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 20px;
+    }
+    .nav-section {
+      padding: 14px 20px 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+    }
+    .nav-item {
+      padding: 9px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-main);
+    }
+    .nav-item.active {
+      background: rgba(99, 102, 241, 0.15);
+      color: var(--primary);
+      border-left-color: var(--primary);
+      font-weight: 600;
+    }
+    .nav-badge {
+      margin-left: auto;
+      background: var(--danger);
+      color: #fff;
+      font-size: 0.75rem;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 700;
+    }
+
+    #main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Top Bar */
+    #topbar {
+      height: 60px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      flex-shrink: 0;
+    }
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-base);
+      padding: 6px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+      font-size: 0.85rem;
+    }
+    .role-tag {
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+    .role-tag.admin { background: rgba(245, 158, 11, 0.2); color: var(--warning); border: 1px solid var(--warning); }
+    .role-tag.customer { background: rgba(6, 182, 212, 0.2); color: var(--secondary); border: 1px solid var(--secondary); }
+    .token-mask {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .btn-xs {
+      padding: 4px 8px;
+      font-size: 0.75rem;
+      border-radius: 4px;
+      cursor: pointer;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+    }
+    .btn-xs:hover { background: var(--border-color); }
+
+    /* Content Area */
+    .view-container {
+      flex: 1;
+      padding: 24px;
+      overflow-y: auto;
+      display: none;
+    }
+    .view-container.active { display: block; }
+
+    /* Grids & Cards */
+    .grid { display: grid; gap: 20px; }
+    .grid-2 { grid-template-columns: 1fr 1fr; }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+    .form-group label {
+      display: block;
+      font-size: 0.83rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+    .form-control {
+      width: 100%;
+      padding: 9px 12px;
+      background: var(--bg-base);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      font-size: 0.9rem;
+    }
+    .form-control:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    textarea.form-control { resize: vertical; min-height: 70px; }
+
+    .btn {
+      padding: 9px 16px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-hover); }
+    .btn-secondary { background: var(--secondary); color: #000; }
+    .btn-secondary:hover { opacity: 0.9; }
+    .btn-success { background: var(--success); color: #fff; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-main); }
+    .btn-outline:hover { background: var(--bg-card); }
+
+    .stat-card {
+      padding: 16px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+    }
+    .stat-val { font-size: 1.8rem; font-weight: 700; color: var(--primary); margin: 4px 0; }
+    .stat-label { font-size: 0.83rem; color: var(--text-muted); }
+
+    /* Catalog Product Cards */
+    .product-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+      gap: 16px;
+    }
+    .product-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.15s ease;
+    }
+    .product-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--primary);
+    }
+    .product-img {
+      height: 150px;
+      background: #090d16;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      object-fit: cover;
+      width: 100%;
+    }
+    .product-info { padding: 14px; flex: 1; display: flex; flex-direction: column; }
+    .product-title { font-weight: 600; font-size: 0.95rem; margin-bottom: 4px; }
+    .product-meta { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 8px; }
+    .product-price { font-size: 1.1rem; font-weight: 700; color: var(--success); margin-top: auto; padding-top: 10px; }
+
+    /* Tables */
+    .table-container { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.85rem; }
+    th { background: var(--bg-card); padding: 10px 12px; color: var(--text-muted); font-weight: 600; border-bottom: 1px solid var(--border-color); }
+    td { padding: 10px 12px; border-bottom: 1px solid var(--border-color); }
+
+    /* Status Badges */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .status-pending { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+    .status-confirmed { background: rgba(6, 182, 212, 0.2); color: var(--secondary); }
+    .status-completed { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+    .status-failed { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+    /* Code & Logs */
+    .code-box {
+      background: #090d16;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 280px;
+      overflow-y: auto;
+      color: #00ff66;
+    }
+
+    .alert {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+    }
+    .alert-info { background: rgba(6, 182, 212, 0.12); border: 1px solid var(--secondary); color: var(--secondary); }
+    .alert-success { background: rgba(16, 185, 129, 0.12); border: 1px solid var(--success); color: var(--success); }
+    .alert-danger { background: rgba(239, 68, 68, 0.12); border: 1px solid var(--danger); color: var(--danger); }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    .modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      width: 580px;
+      max-width: 90vw;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div class="brand-header">
+      <span>🛒 E-Com Cockpit</span>
+      <span style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;" id="backend-ping">● 3000</span>
+    </div>
+    
+    <div class="nav-scroll">
+      <div class="nav-section">Customer Flow</div>
+      <div class="nav-item active" onclick="switchTab('tab-dashboard')">📊 Dashboard & Auth</div>
+      <div class="nav-item" onclick="switchTab('tab-catalog')">🛍️ Products & Catalog</div>
+      <div class="nav-item" onclick="switchTab('tab-cart')">🛒 Cart & Checkout</div>
+      <div class="nav-item" onclick="switchTab('tab-orders')">📦 My Orders & Payments</div>
+      <div class="nav-item" onclick="switchTab('tab-addresses')">📍 Delivery Addresses</div>
+      <div class="nav-item" onclick="switchTab('tab-reviews')">⭐ Product Reviews</div>
+      <div class="nav-item" onclick="switchTab('tab-wishlist')">💖 Wishlist</div>
+      <div class="nav-item" onclick="switchTab('tab-notifications')">
+        🔔 Notifications <span id="nav-notify-count" class="nav-badge">0</span>
+      </div>
+
+      <div class="nav-section">Admin Flow</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-dashboard')">🛠️ Admin Dashboard</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-catalog')">🏷️ Categories & Brands</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-products')">📦 Products & Variants</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-media')">☁️ Cloudinary Media</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-inventory')">📊 Inventory Stock</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-coupons')">🎟️ Coupon Admin</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-orders')">📋 Order Management</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-payments')">💳 Payments & Refunds</div>
+      <div class="nav-item" onclick="switchTab('tab-admin-reviews')">🛡️ Review Moderation</div>
+
+      <div class="nav-section">Developer</div>
+      <div class="nav-item" onclick="switchTab('tab-shipping')">🚚 Shipping Rates</div>
+      <div class="nav-item" onclick="switchTab('tab-debug')">⚡ API Route Debugger</div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="main-content">
+    
+    <!-- Topbar -->
+    <div id="topbar">
+      <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-muted);" id="page-title">
+        Dashboard & Auth
+      </div>
+      <div class="user-pill">
+        <span id="user-display">Not Authenticated</span>
+        <span id="role-display" class="role-tag customer" style="display:none;">CUSTOMER</span>
+        <span class="token-mask" id="token-mask-text">Token: None</span>
+        <button class="btn-xs" onclick="toggleTokenDisplay()">Show Token</button>
+        <button class="btn-xs" id="auth-action-btn" onclick="switchTab('tab-dashboard')">Login</button>
+      </div>
+    </div>
+
+    <!-- Tab 1: Dashboard / Auth -->
+    <div id="tab-dashboard" class="view-container active">
+      <div class="alert alert-info">
+        💡 <strong>Integration Cockpit:</strong> Connected to live backend at <code>http://localhost:3000/api/v1</code>. Register/login as CUSTOMER or ADMIN to test real endpoints.
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">User Authentication</div>
+          <div class="grid grid-2">
+            <div class="form-group"><label>First Name</label><input type="text" id="auth-fn" class="form-control" value="Jane" /></div>
+            <div class="form-group"><label>Last Name</label><input type="text" id="auth-ln" class="form-control" value="Doe" /></div>
+          </div>
+          <div class="form-group">
+            <label>Email Address</label>
+            <input type="email" id="auth-email" class="form-control" value="customer@example.com" />
+          </div>
+          <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="auth-password" class="form-control" value="Password123!" />
+          </div>
+          <div style="display:flex; gap:10px; margin-top:16px;">
+            <button class="btn btn-primary" onclick="handleLogin()">Login</button>
+            <button class="btn btn-outline" onclick="handleRegister()">Register Customer</button>
+            <button class="btn btn-danger" onclick="handleLogout()">Logout</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Session & Profile (/api/v1/auth/me)</span>
+            <button class="btn btn-xs btn-outline" onclick="fetchProfile()">Re-fetch</button>
+          </div>
+          <div id="session-info-box" class="code-box">No active session token. Please log in.</div>
+          <div style="margin-top: 10px;">
+            <button class="btn btn-xs btn-outline" onclick="handleAdminTest()">Test Admin Route Access (/auth/admin-test)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Catalog Products (Customer Flow) -->
+    <div id="tab-catalog" class="view-container">
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-title">
+          <span>Live Catalog Products</span>
+          <div style="display:flex; gap:10px;">
+            <input type="text" id="catalog-search-q" class="form-control" placeholder="Search by name/slug..." style="width:200px; padding:4px 8px; font-size:0.8rem;" />
+            <select id="catalog-category-filter" class="form-control" style="width:140px; padding:4px 8px; font-size:0.8rem;">
+              <option value="">All Categories</option>
+            </select>
+            <button class="btn btn-xs btn-primary" onclick="loadCatalogProducts()">Search / Refresh</button>
+          </div>
+        </div>
+        <div id="catalog-products-container" class="product-grid">
+          <div style="color: var(--text-muted);">Loading products...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 3: Cart & Checkout -->
+    <div id="tab-cart" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span>Active Cart (/api/v1/cart)</span>
+            <div>
+              <button class="btn btn-xs btn-danger" onclick="handleClearCart()">Clear</button>
+              <button class="btn btn-xs btn-outline" onclick="loadUserCart()">Refresh</button>
+            </div>
+          </div>
+          <div id="cart-items-container">
+            <div style="color: var(--text-muted);">Cart is empty.</div>
+          </div>
+          
+          <div style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 14px;">
+            <div class="form-group">
+              <label>Apply Coupon Code</label>
+              <div style="display:flex; gap:10px;">
+                <input type="text" id="coupon-code-input" class="form-control" placeholder="e.g. SAVE20" />
+                <button class="btn btn-secondary" onclick="handleApplyCoupon()">Apply Preview</button>
+                <button class="btn btn-outline btn-xs" onclick="handleRemoveCoupon()">Remove</button>
+              </div>
+            </div>
+            <div id="coupon-preview-result" style="margin-top:10px; font-size:0.85rem;"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Checkout & Order Creation</div>
+          <div class="form-group">
+            <label>Delivery Address</label>
+            <div style="display:flex; gap:8px;">
+              <select id="checkout-address-select" class="form-control">
+                <option value="">-- Load Saved Addresses --</option>
+              </select>
+              <button class="btn btn-xs btn-outline" onclick="loadAddressesForSelect()">🔄</button>
+            </div>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Applied Coupon Code</label>
+              <input type="text" id="checkout-coupon-code" class="form-control" placeholder="Optional Coupon (e.g. SAVE10)" />
+            </div>
+            <div class="form-group">
+              <label>Customer Order Notes</label>
+              <input type="text" id="checkout-notes" class="form-control" placeholder="Optional delivery instructions" />
+            </div>
+          </div>
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-outline" onclick="handleCheckoutPrep()">Evaluate Checkout Prep</button>
+            <button class="btn btn-success" style="flex:1;" onclick="handleCheckout()">
+              🚀 Checkout Order (POST /orders/checkout)
+            </button>
+          </div>
+          
+          <div id="checkout-output" class="code-box" style="margin-top: 16px; display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 4: Orders & Payments -->
+    <div id="tab-orders" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span>My Orders (/api/v1/orders)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadUserOrders()">Fetch Orders</button>
+          </div>
+          <div id="user-orders-list" class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order #</th>
+                  <th>Status</th>
+                  <th>Grand Total</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="orders-tbody">
+                <tr><td colspan="4" style="color:var(--text-muted);">Click Fetch Orders...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Razorpay Payment Flow</div>
+          <div class="form-group">
+            <label>Target Order UUID</label>
+            <input type="text" id="payment-order-id" class="form-control" placeholder="Select order on left or enter Order UUID" />
+          </div>
+          <div style="display:flex; gap:10px; margin-bottom:16px;">
+            <button class="btn btn-primary" onclick="handleInitiatePayment()">1. Initiate Payment (POST /payments/initiate)</button>
+            <button class="btn btn-secondary" onclick="loadPaymentStatus()">2. Check Server Status</button>
+          </div>
+          <div id="payment-status-box" class="code-box">Payment status and Razorpay logs will appear here...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 5: Delivery Addresses -->
+    <div id="tab-addresses" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">Add Saved Address (POST /users/addresses)</div>
+          <div class="form-group"><label>Full Name</label><input type="text" id="addr-name" class="form-control" value="Gail Test" /></div>
+          <div class="form-group"><label>Phone Number</label><input type="text" id="addr-phone" class="form-control" value="+919876543210" /></div>
+          <div class="form-group"><label>Street Address Line 1</label><input type="text" id="addr-line1" class="form-control" value="123 Tech Park" /></div>
+          <div class="form-group"><label>City</label><input type="text" id="addr-city" class="form-control" value="Bangalore" /></div>
+          <div class="form-group"><label>State</label><input type="text" id="addr-state" class="form-control" value="Karnataka" /></div>
+          <div class="form-group"><label>Postal Code</label><input type="text" id="addr-zip" class="form-control" value="560001" /></div>
+          <button class="btn btn-primary" onclick="handleCreateAddress()">Save Address</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Saved Addresses (GET /users/addresses)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadUserAddresses()">Refresh</button>
+          </div>
+          <div id="addresses-list-container">
+            <div style="color:var(--text-muted);">Click Refresh...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 6: Reviews -->
+    <div id="tab-reviews" class="view-container">
+      <div class="card">
+        <div class="card-title">Customer Product Reviews</div>
+        <div class="grid grid-2">
+          <div>
+            <div class="card-title" style="font-size:0.95rem;">Submit Review (Verified purchase required)</div>
+            <div class="form-group">
+              <label>Product UUID</label>
+              <input type="text" id="review-product-id" class="form-control" placeholder="Enter Product UUID" />
+            </div>
+            <div class="form-group">
+              <label>Rating (1 to 5)</label>
+              <select id="review-rating" class="form-control">
+                <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
+                <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
+                <option value="3">⭐⭐⭐ (3 Stars)</option>
+                <option value="2">⭐⭐ (2 Stars)</option>
+                <option value="1">⭐ (1 Star)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Review Title</label>
+              <input type="text" id="review-title" class="form-control" value="Excellent quality!" />
+            </div>
+            <div class="form-group">
+              <label>Comment</label>
+              <textarea id="review-comment" class="form-control">Very pleased with the product design and fast delivery.</textarea>
+            </div>
+            <button class="btn btn-primary" onclick="handleCreateReview()">Submit Review</button>
+          </div>
+          <div>
+            <div class="card-title" style="font-size:0.95rem;">
+              <span>My Submitted Reviews (/reviews/me)</span>
+              <button class="btn btn-xs btn-outline" onclick="loadMyReviews()">Fetch</button>
+            </div>
+            <div id="my-reviews-container" class="code-box">Click Fetch...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 7: Wishlist -->
+    <div id="tab-wishlist" class="view-container">
+      <div class="card">
+        <div class="card-title">
+          <span>Customer Wishlist (/api/v1/wishlist)</span>
+          <button class="btn btn-xs btn-outline" onclick="loadUserWishlist()">Refresh Wishlist</button>
+        </div>
+        <div class="grid grid-2">
+          <div>
+            <div class="form-group">
+              <label>Add Product to Wishlist (UUID)</label>
+              <div style="display:flex; gap:10px;">
+                <input type="text" id="wishlist-product-id" class="form-control" placeholder="Product UUID" />
+                <button class="btn btn-primary" onclick="handleAddToWishlist()">+ Add</button>
+              </div>
+            </div>
+          </div>
+          <div id="wishlist-items-container" class="code-box">Click Refresh Wishlist...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 8: Notifications -->
+    <div id="tab-notifications" class="view-container">
+      <div class="card">
+        <div class="card-title">
+          <span>Customer Notifications (/api/v1/notifications)</span>
+          <div>
+            <button class="btn btn-xs btn-primary" onclick="handleMarkAllNotificationsRead()">Mark All Read</button>
+            <button class="btn btn-xs btn-outline" onclick="loadUserNotifications()">Refresh</button>
+          </div>
+        </div>
+        <div id="notifications-list-container" style="display:flex; flex-direction:column; gap:10px;">
+          <div style="color:var(--text-muted);">Click Refresh...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 9: Admin Dashboard -->
+    <div id="tab-admin-dashboard" class="view-container">
+      <div class="alert alert-info">
+        🛡️ <strong>Admin Control Panel:</strong> Complete integration for Catalog Categories, Brands, Products, Variants, Cloudinary Media Upload, Inventory adjustments, Coupons, and Review moderation.
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom: 20px;">
+        <div class="stat-card">
+          <div class="stat-label">Total Products</div>
+          <div class="stat-val" id="stat-products-count">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">System Orders</div>
+          <div class="stat-val" id="stat-orders-count">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Pending Reviews</div>
+          <div class="stat-val" id="stat-reviews-count">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Active Coupons</div>
+          <div class="stat-val" id="stat-coupons-count">-</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="loadAdminStats()">Refresh System Metrics</button>
+    </div>
+
+    <!-- Tab 10: Admin Categories & Brands -->
+    <div id="tab-admin-catalog" class="view-container">
+      <div class="grid grid-2">
+        <!-- Categories -->
+        <div class="card">
+          <div class="card-title">Create Category (POST /categories)</div>
+          <div class="form-group"><label>Category Name</label><input type="text" id="cat-name" class="form-control" placeholder="e.g. Footwear" /></div>
+          <div class="form-group"><label>Parent Category ID (Optional UUID)</label><input type="text" id="cat-parent" class="form-control" /></div>
+          <button class="btn btn-primary" onclick="handleCreateCategory()">Create Category</button>
+          
+          <div class="card-title" style="margin-top:20px;">
+            <span>Category List (GET /categories)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminCategories()">Refresh</button>
+          </div>
+          <div id="admin-categories-list" class="code-box">Click Refresh...</div>
+        </div>
+
+        <!-- Brands -->
+        <div class="card">
+          <div class="card-title">Create Brand (POST /brands)</div>
+          <div class="form-group"><label>Brand Name</label><input type="text" id="brand-name" class="form-control" placeholder="e.g. Nike" /></div>
+          <div class="form-group"><label>Description</label><input type="text" id="brand-desc" class="form-control" placeholder="Brand overview" /></div>
+          <div class="form-group"><label>Logo URL (Optional)</label><input type="text" id="brand-logo" class="form-control" placeholder="https://..." /></div>
+          <button class="btn btn-primary" onclick="handleCreateBrand()">Create Brand</button>
+          
+          <div class="card-title" style="margin-top:20px;">
+            <span>Brand List (GET /brands)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminBrands()">Refresh</button>
+          </div>
+          <div id="admin-brands-list" class="code-box">Click Refresh...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 11: Admin Products & Variants -->
+    <div id="tab-admin-products" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">Create Product (POST /products)</div>
+          <div class="form-group"><label>Product Name</label><input type="text" id="prod-name" class="form-control" value="Air Jordan 1 High" /></div>
+          <div class="form-group"><label>Description</label><input type="text" id="prod-desc" class="form-control" value="Iconic retro high-top basketball sneaker." /></div>
+          <div class="form-group"><label>Short Description</label><input type="text" id="prod-short-desc" class="form-control" value="High top basketball sneaker" /></div>
+          
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Select Category</label>
+              <select id="prod-cat-select" class="form-control"><option value="">-- Load Categories --</option></select>
+            </div>
+            <div class="form-group">
+              <label>Select Brand</label>
+              <select id="prod-brand-select" class="form-control"><option value="">-- Load Brands --</option></select>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid var(--border-color); padding-top:12px; margin-top:8px;">
+            <div class="card-title" style="font-size:0.9rem;">Initial Product Variant</div>
+            <div class="grid grid-2">
+              <div class="form-group"><label>Variant SKU</label><input type="text" id="prod-var-sku" class="form-control" value="AJ1-HI-RED-10" /></div>
+              <div class="form-group"><label>Price (Decimal String e.g. 179.99)</label><input type="text" id="prod-var-price" class="form-control" value="179.99" /></div>
+            </div>
+            <div class="grid grid-2">
+              <div class="form-group"><label>Color</label><input type="text" id="prod-var-color" class="form-control" value="Chicago Red" /></div>
+              <div class="form-group"><label>Size</label><input type="text" id="prod-var-size" class="form-control" value="10" /></div>
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:10px;">
+            <button class="btn btn-primary" onclick="handleCreateProduct()">🚀 Create Product in DB</button>
+            <button class="btn btn-outline btn-xs" onclick="populateProductDropdowns()">Refresh Dropdowns</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Admin Products (GET /products)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminProductsList()">Refresh List</button>
+          </div>
+          <div id="admin-products-container" class="code-box">Click Refresh List...</div>
+          
+          <div style="margin-top: 14px; border-top: 1px solid var(--border-color); padding-top:14px;">
+            <div class="card-title" style="font-size:0.95rem;">Update Product Status (PATCH /products/:id)</div>
+            <div class="grid grid-2">
+              <div class="form-group"><label>Product UUID</label><input type="text" id="patch-prod-id" class="form-control" /></div>
+              <div class="form-group">
+                <label>New Status</label>
+                <div style="display:flex; gap:10px;">
+                  <select id="patch-prod-status" class="form-control">
+                    <option value="draft">draft</option>
+                    <option value="active">active</option>
+                    <option value="archived">archived</option>
+                  </select>
+                  <button class="btn btn-primary" onclick="handlePatchProduct()">Update</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 12: Cloudinary Media Upload -->
+    <div id="tab-admin-media" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">Upload Product Media to Cloudinary</div>
+          <div class="form-group">
+            <label>Product UUID</label>
+            <input type="text" id="upload-product-id" class="form-control" placeholder="Enter or paste Product UUID" />
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Alt Text (SEO & Accessibility)</label>
+              <input type="text" id="upload-alt-text" class="form-control" value="Product featured photo" />
+            </div>
+            <div class="form-group">
+              <label>Display Order (0 = Main Thumbnail)</label>
+              <input type="number" id="upload-display-order" class="form-control" value="0" min="0" />
+            </div>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Media Type</label>
+              <select id="upload-media-type" class="form-control">
+                <option value="">Auto (Infer from file)</option>
+                <option value="IMAGE">IMAGE</option>
+                <option value="VIDEO">VIDEO</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Select File (Image up to 5MB, Video up to 50MB)</label>
+              <input type="file" id="upload-file-input" class="form-control" accept="image/*,video/*" />
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; margin-top:8px;">
+            <button class="btn btn-primary" onclick="handleUploadMedia()">
+              ☁️ Upload Media Asset (POST /products/:id/media)
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Cloudinary Result & Image Preview</div>
+          <div id="media-upload-output" class="code-box">Uploaded Cloudinary metadata and URL will appear here...</div>
+          <div id="media-preview-container" style="margin-top:14px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 13: Inventory Management -->
+    <div id="tab-admin-inventory" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">Initialize / Adjust Stock</div>
+          <div class="form-group">
+            <label>Variant UUID</label>
+            <input type="text" id="inv-variant-id" class="form-control" placeholder="ProductVariant UUID" />
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group">
+              <label>Initial Stock Qty</label>
+              <input type="number" id="inv-init-qty" class="form-control" value="50" />
+            </div>
+            <div class="form-group">
+              <label>Low Stock Threshold</label>
+              <input type="number" id="inv-threshold" class="form-control" value="5" />
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="handleCreateInventory()">1. Initialize Stock (POST /inventory)</button>
+          
+          <div style="border-top:1px solid var(--border-color); padding-top:12px; margin-top:16px;">
+            <div class="card-title" style="font-size:0.9rem;">Adjust Stock Quantity</div>
+            <div class="grid grid-2">
+              <div class="form-group">
+                <label>Adjustment Type</label>
+                <select id="inv-adj-type" class="form-control"><option value="INCREASE">INCREASE</option><option value="DECREASE">DECREASE</option></select>
+              </div>
+              <div class="form-group">
+                <label>Quantity</label>
+                <input type="number" id="inv-adj-qty" class="form-control" value="25" />
+              </div>
+            </div>
+            <button class="btn btn-secondary" onclick="handleAdjustInventory()">2. Adjust Stock (PATCH /inventory/:id/adjust)</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Inventory Records (GET /inventory)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminInventory()">Refresh</button>
+          </div>
+          <div id="admin-inventory-container" class="code-box">Click Refresh...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 14: Admin Coupons -->
+    <div id="tab-admin-coupons" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">Create Promotion Coupon (POST /admin/coupons)</div>
+          <div class="form-group"><label>Coupon Code (Uppercase)</label><input type="text" id="coupon-code" class="form-control" value="SAVE20" /></div>
+          <div class="form-group"><label>Description</label><input type="text" id="coupon-desc" class="form-control" value="20% off all footwear" /></div>
+          <div class="grid grid-2">
+            <div class="form-group"><label>Discount Type</label><select id="coupon-type" class="form-control"><option value="PERCENTAGE">PERCENTAGE</option><option value="FIXED_AMOUNT">FIXED_AMOUNT</option></select></div>
+            <div class="form-group"><label>Discount Value</label><input type="number" id="coupon-value" class="form-control" value="20" /></div>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group"><label>Min Order Amount (₹)</label><input type="number" id="coupon-min" class="form-control" value="1000" /></div>
+            <div class="form-group"><label>Max Discount Cap (₹)</label><input type="number" id="coupon-max" class="form-control" value="500" /></div>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group"><label>Total Global Usage Limit</label><input type="number" id="coupon-usage-limit" class="form-control" value="100" /></div>
+            <div class="form-group"><label>Per-Customer Usage Limit</label><input type="number" id="coupon-per-user" class="form-control" value="1" /></div>
+          </div>
+          <div class="grid grid-2">
+            <div class="form-group"><label>Starts At (ISO Timestamp)</label><input type="text" id="coupon-start" class="form-control" value="2026-08-01T00:00:00.000Z" /></div>
+            <div class="form-group"><label>Expires At (ISO Timestamp)</label><input type="text" id="coupon-end" class="form-control" value="2026-12-31T23:59:59.000Z" /></div>
+          </div>
+          <div class="form-group" style="display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="coupon-active" checked style="width:18px; height:18px;" />
+            <label for="coupon-active" style="margin-bottom:0; cursor:pointer;">Set Coupon Active Immediately</label>
+          </div>
+          <button class="btn btn-primary" onclick="handleCreateCoupon()">🎟️ Create Coupon (POST /admin/coupons)</button>
+        </div>
+
+        <div class="card">
+          <div class="card-title">
+            <span>Admin Coupon List (GET /admin/coupons)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminCoupons()">Refresh</button>
+          </div>
+          <div id="admin-coupons-container" class="code-box">Click Refresh...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 15: Admin Orders -->
+    <div id="tab-admin-orders" class="view-container">
+      <div class="card">
+        <div class="card-title">
+          <span>All System Orders (GET /orders/admin/all)</span>
+          <button class="btn btn-xs btn-outline" onclick="loadAdminOrders()">Refresh Orders</button>
+        </div>
+        <div id="admin-orders-container" class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Recipient</th>
+                <th>Order Status</th>
+                <th>Payment Method</th>
+                <th>Total</th>
+                <th>Actions & Status Transition</th>
+              </tr>
+            </thead>
+            <tbody id="admin-orders-tbody">
+              <tr><td colspan="6" style="color:var(--text-muted);">Click Refresh Orders...</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div id="admin-order-detail-box" class="code-box" style="margin-top:16px; display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Tab 16: Admin Payments & Refunds -->
+    <div id="tab-admin-payments" class="view-container">
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-title">
+            <span>System Payments (GET /admin/payments)</span>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminPayments()">Refresh Payments</button>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Order # / ID</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Method</th>
+                  <th>Gateway Ref</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-payments-tbody">
+                <tr><td colspan="6" style="color:var(--text-muted);">Click Refresh Payments...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Process Refund (POST /admin/payments/:id/refund)</div>
+          <div class="form-group">
+            <label>Payment UUID</label>
+            <input type="text" id="refund-payment-id" class="form-control" placeholder="Select payment on left or paste UUID" />
+          </div>
+          <div class="form-group">
+            <label>Refund Amount (Optional partial refund ₹, leave blank for full)</label>
+            <input type="number" id="refund-amount" class="form-control" placeholder="Full Amount" />
+          </div>
+          <div class="form-group">
+            <label>Reason for Refund</label>
+            <input type="text" id="refund-reason" class="form-control" value="Customer cancellation / return request" />
+          </div>
+          <button class="btn btn-danger" onclick="handleRefundPayment()">
+            💸 Process Refund via Razorpay Gateway
+          </button>
+          <div id="refund-result-box" class="code-box" style="margin-top:14px; display:none;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 16: Admin Review Moderation -->
+    <div id="tab-admin-reviews" class="view-container">
+      <div class="card">
+        <div class="card-title">
+          <span>Review Moderation Queue (GET /admin/reviews)</span>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <select id="admin-review-status-filter" class="form-control" style="width:140px; padding:4px 8px; font-size:0.8rem;" onchange="loadAdminReviews()">
+              <option value="PENDING">PENDING</option>
+              <option value="APPROVED">APPROVED</option>
+              <option value="REJECTED">REJECTED</option>
+              <option value="">ALL STATUSES</option>
+            </select>
+            <button class="btn btn-xs btn-outline" onclick="loadAdminReviews()">Refresh Queue</button>
+          </div>
+        </div>
+
+        <div id="admin-reviews-list" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="color:var(--text-muted);">Loading reviews...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 17: Shipping -->
+    <div id="tab-shipping" class="view-container">
+      <div class="card">
+        <div class="card-title">Shipping Rates & Tracking</div>
+        <div class="grid grid-2">
+          <div>
+            <div class="card-title" style="font-size:0.95rem;">Calculate Shipping Rates</div>
+            <div class="form-group"><label>Postal Code</label><input type="text" id="ship-zip" class="form-control" value="560001" /></div>
+            <div class="form-group"><label>Weight (kg)</label><input type="number" id="ship-weight" class="form-control" value="1.5" /></div>
+            <div class="form-group"><label>Declared Value (₹)</label><input type="number" id="ship-val" class="form-control" value="1500" /></div>
+            <button class="btn btn-primary" onclick="handleCalcShipping()">Calculate Rates</button>
+          </div>
+          <div>
+            <div class="card-title" style="font-size:0.95rem;">Shipping Rate Response</div>
+            <div id="shipping-result-box" class="code-box">Click Calculate Rates...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 18: API Route Debugger -->
+    <div id="tab-debug" class="view-container">
+      <div class="card">
+        <div class="card-title">⚡ Interactive API Route Debugger</div>
+        <div class="grid grid-2">
+          <div>
+            <div class="form-group">
+              <label>Quick Fill Endpoint Template</label>
+              <select id="debug-template-select" class="form-control" onchange="applyDebugTemplate(this.value)">
+                <option value="">-- Select Template --</option>
+                <option value="health">GET /health</option>
+                <option value="auth-me">GET /auth/me</option>
+                <option value="auth-admin-test">GET /auth/admin-test</option>
+                <option value="products">GET /products</option>
+                <option value="categories">GET /categories</option>
+                <option value="brands">GET /brands</option>
+                <option value="cart">GET /cart</option>
+                <option value="orders">GET /orders</option>
+                <option value="notifications">GET /notifications</option>
+                <option value="admin-orders">GET /orders/admin/all</option>
+                <option value="admin-coupons">GET /admin/coupons</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>HTTP Method</label>
+              <select id="debug-method" class="form-control">
+                <option value="GET">GET</option>
+                <option value="POST">POST</option>
+                <option value="PATCH">PATCH</option>
+                <option value="DELETE">DELETE</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Endpoint URL (e.g. /health, /products, /auth/me)</label>
+              <input type="text" id="debug-endpoint" class="form-control" value="/health" />
+            </div>
+            <div class="form-group">
+              <label>JSON Request Body (For POST / PATCH)</label>
+              <textarea id="debug-body" class="form-control" placeholder='{"key": "value"}'></textarea>
+            </div>
+            <button class="btn btn-primary" onclick="handleDebugExecute()">Execute API Request</button>
+          </div>
+          <div>
+            <div class="card-title">Live API Response Output</div>
+            <div id="debug-response" class="code-box">Click Execute API Request...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // Centralized Configuration
+    const CONFIG = {
+      API_BASE_URL: 'http://localhost:3000/api/v1',
+      RAZORPAY_KEY_ID: 'rzp_test_mockkey'
+    };
+
+    let currentUser = null;
+    let jwtToken = localStorage.getItem('jwtToken') || '';
+    let showTokenRaw = false;
+
+    // Helper: Headers
+    function getHeaders(isMultipart = false) {
+      const headers = {};
+      if (!isMultipart) headers['Content-Type'] = 'application/json';
+      if (jwtToken) headers['Authorization'] = `Bearer ${jwtToken}`;
+      return headers;
+    }
+
+    // Helper: Unified API Fetch
+    async function apiFetch(endpoint, options = {}) {
+      const url = endpoint.startsWith('http') ? endpoint : `${CONFIG.API_BASE_URL}${endpoint}`;
+      const isMultipart = options.body instanceof FormData;
+      
+      const defaultOptions = {
+        headers: getHeaders(isMultipart)
+      };
+
+      const mergedOptions = {
+        ...defaultOptions,
+        ...options,
+        headers: { ...defaultOptions.headers, ...(options.headers || {}) }
+      };
+
+      const startTime = performance.now();
+      try {
+        const res = await fetch(url, mergedOptions);
+        const duration = (performance.now() - startTime).toFixed(0);
+        let data;
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await res.json();
+        } else {
+          data = await res.text();
+        }
+
+        return { ok: res.ok, status: res.status, statusText: res.statusText, duration, data };
+      } catch (err) {
+        return { ok: false, status: 0, statusText: err.message, duration: 0, data: { error: err.message } };
+      }
+    }
+
+    // Navigation Switcher
+    function switchTab(tabId) {
+      document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      
+      const navItem = Array.from(document.querySelectorAll('.nav-item')).find(el => el.getAttribute('onclick')?.includes(tabId));
+      if (navItem) navItem.classList.add('active');
+
+      const titleMap = {
+        'tab-dashboard': 'Dashboard & Auth',
+        'tab-catalog': 'Products & Catalog',
+        'tab-cart': 'Cart & Checkout',
+        'tab-orders': 'My Orders & Payments',
+        'tab-addresses': 'Delivery Addresses',
+        'tab-reviews': 'Product Reviews',
+        'tab-wishlist': 'Wishlist',
+        'tab-notifications': 'Notifications',
+        'tab-admin-dashboard': 'Admin Dashboard',
+        'tab-admin-catalog': 'Categories & Brands',
+        'tab-admin-products': 'Products & Variants',
+        'tab-admin-media': 'Cloudinary Media',
+        'tab-admin-inventory': 'Inventory Stock',
+        'tab-admin-coupons': 'Coupon Admin',
+        'tab-admin-orders': 'Order Management',
+        'tab-admin-payments': 'Payments & Refunds',
+        'tab-admin-reviews': 'Review Moderation',
+        'tab-shipping': 'Shipping Rates',
+        'tab-debug': 'API Route Debugger'
+      };
+      document.getElementById('page-title').textContent = titleMap[tabId] || 'Dashboard';
+
+      // Auto-load data for active tab
+      if (tabId === 'tab-catalog') loadCatalogProducts();
+      if (tabId === 'tab-cart') { loadUserCart(); loadAddressesForSelect(); }
+      if (tabId === 'tab-orders') loadUserOrders();
+      if (tabId === 'tab-addresses') loadUserAddresses();
+      if (tabId === 'tab-admin-products') populateProductDropdowns();
+      if (tabId === 'tab-admin-orders') loadAdminOrders();
+      if (tabId === 'tab-admin-payments') loadAdminPayments();
+      if (tabId === 'tab-admin-reviews') loadAdminReviews();
+      if (tabId === 'tab-notifications') loadUserNotifications();
+    }
+
+    function toggleTokenDisplay() {
+      showTokenRaw = !showTokenRaw;
+      updateAuthUI();
+    }
+
+    function updateAuthUI() {
+      const userDisplay = document.getElementById('user-display');
+      const roleDisplay = document.getElementById('role-display');
+      const tokenMask = document.getElementById('token-mask-text');
+      const authBtn = document.getElementById('auth-action-btn');
+
+      if (jwtToken && currentUser) {
+        userDisplay.textContent = currentUser.email || 'Authenticated User';
+        roleDisplay.textContent = currentUser.role || 'CUSTOMER';
+        roleDisplay.className = `role-tag ${currentUser.role === 'ADMIN' ? 'admin' : 'customer'}`;
+        roleDisplay.style.display = 'inline-block';
+        tokenMask.textContent = showTokenRaw ? `Token: ${jwtToken.substring(0, 16)}...` : 'Token: ********';
+        authBtn.textContent = 'Logout';
+        authBtn.onclick = handleLogout;
+      } else {
+        userDisplay.textContent = 'Not Authenticated';
+        roleDisplay.style.display = 'none';
+        tokenMask.textContent = 'Token: None';
+        authBtn.textContent = 'Login';
+        authBtn.onclick = () => switchTab('tab-dashboard');
+      }
+    }
+
+    // Auth Actions
+    async function handleLogin() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+
+      const res = await apiFetch('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password })
+      });
+
+      const box = document.getElementById('session-info-box');
+      box.textContent = JSON.stringify(res.data, null, 2);
+
+      if (res.ok && res.data.accessToken) {
+        jwtToken = res.data.accessToken;
+        localStorage.setItem('jwtToken', jwtToken);
+        await fetchProfile();
+      }
+    }
+
+    async function handleRegister() {
+      const email = document.getElementById('auth-email').value.trim();
+      const password = document.getElementById('auth-password').value;
+
+      const res = await apiFetch('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, firstName: 'Test', lastName: 'User' })
+      });
+
+      document.getElementById('session-info-box').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function handleLogout() {
+      if (jwtToken) {
+        await apiFetch('/auth/logout', { method: 'POST' });
+      }
+      jwtToken = '';
+      currentUser = null;
+      localStorage.removeItem('jwtToken');
+      updateAuthUI();
+      document.getElementById('session-info-box').textContent = 'Logged out successfully.';
+    }
+
+    async function fetchProfile() {
+      if (!jwtToken) return;
+      const res = await apiFetch('/auth/me');
+      if (res.ok) {
+        currentUser = res.data;
+        updateAuthUI();
+        loadNotificationCount();
+        document.getElementById('session-info-box').textContent = JSON.stringify(res.data, null, 2);
+      }
+    }
+
+    async function handleAdminTest() {
+      const res = await apiFetch('/auth/admin-test');
+      alert(`Status: HTTP ${res.status}\n\nResponse:\n${JSON.stringify(res.data, null, 2)}`);
+    }
+
+    // Catalog & Products (Live DB Integration)
+    async function loadCatalogProducts() {
+      const container = document.getElementById('catalog-products-container');
+      container.innerHTML = '<div style="color:var(--text-muted);">Loading products from DB...</div>';
+      
+      const q = document.getElementById('catalog-search-q')?.value.trim() || '';
+      const catId = document.getElementById('catalog-category-filter')?.value || '';
+      
+      let queryParams = [];
+      if (q) queryParams.push(`q=${encodeURIComponent(q)}`);
+      if (catId) queryParams.push(`categoryId=${encodeURIComponent(catId)}`);
+      const qs = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+      const res = await apiFetch(`/products${qs}`);
+      if (res.ok && res.data.items) {
+        if (res.data.items.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted); grid-column:1/-1;">No products found in DB. Go to "Admin -> Products & Variants" to create products!</div>';
+          return;
+        }
+
+        container.innerHTML = res.data.items.map(p => {
+          const firstVariant = p.variants && p.variants.length > 0 ? p.variants[0] : null;
+          const priceDisplay = firstVariant ? `₹${parseFloat(firstVariant.price).toFixed(2)}` : 'N/A';
+          const skuDisplay = firstVariant ? firstVariant.sku : 'No SKU';
+          const mediaUrl = p.media && p.media.length > 0 ? p.media[0].url : '';
+
+          return `
+            <div class="product-card">
+              ${mediaUrl 
+                ? `<img src="${mediaUrl}" class="product-img" alt="${p.name}" />`
+                : `<div class="product-img" style="color:var(--text-muted); font-size:0.8rem;">No Image</div>`}
+              <div class="product-info">
+                <div class="product-title">${p.name}</div>
+                <div class="product-meta">
+                  ${p.brand?.name ? `Brand: <strong>${p.brand.name}</strong>` : ''} 
+                  ${p.category?.name ? `| Cat: <strong>${p.category.name}</strong>` : ''}<br/>
+                  SKU: ${skuDisplay} | Status: <span class="status-badge ${p.status === 'ACTIVE' ? 'status-completed' : 'status-pending'}">${p.status}</span>
+                </div>
+                <div class="product-price">${priceDisplay}</div>
+                <div style="display:flex; gap:6px; margin-top:10px;">
+                  ${firstVariant ? `<button class="btn btn-xs btn-primary" style="flex:1;" onclick="addToCart('${firstVariant.id}')">+ Add to Cart</button>` : ''}
+                  <button class="btn btn-xs btn-outline" onclick="copyToClipboard('${p.id}', 'Product UUID')">📋 ID</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        container.innerHTML = `<div style="color:var(--danger); grid-column:1/-1;">Error loading products: ${JSON.stringify(res.data)}</div>`;
+      }
+    }
+
+    async function addToCart(variantId) {
+      if (!jwtToken) {
+        alert('Please log in first.');
+        switchTab('tab-dashboard');
+        return;
+      }
+
+      const res = await apiFetch('/cart/items', {
+        method: 'POST',
+        body: JSON.stringify({ productVariantId: variantId, quantity: 1 })
+      });
+
+      if (res.ok) {
+        alert('Item added to active cart!');
+        loadUserCart();
+      } else {
+        alert(`Failed to add to cart: ${res.data.message || JSON.stringify(res.data)}`);
+      }
+    }
+
+    function copyToClipboard(text, label = 'Text') {
+      navigator.clipboard.writeText(text);
+      alert(`Copied ${label}: ${text}`);
+    }
+
+    // Cart Actions
+    async function loadUserCart() {
+      const container = document.getElementById('cart-items-container');
+      if (!jwtToken) {
+        container.innerHTML = '<div style="color:var(--text-muted);">Please log in to view cart.</div>';
+        return;
+      }
+
+      const res = await apiFetch('/cart');
+      if (res.ok && res.data) {
+        const cart = res.data;
+        if (!cart.items || cart.items.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted);">Your active cart is empty. Add items from the Products tab!</div>';
+          return;
+        }
+
+        container.innerHTML = `
+          <div style="margin-bottom:10px; font-size:0.8rem; color:var(--text-muted);">Cart ID: <code>${cart.id}</code></div>
+          ${cart.items.map(item => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid var(--border-color);">
+              <div>
+                <strong>${item.productName || 'Product'}</strong> (${item.sku || 'SKU'})<br/>
+                <small style="color:var(--text-muted);">Unit: ₹${(item.unitPriceSnapshot || 0).toFixed(2)} | Qty: ${item.quantity} (Stock: ${item.availableQuantity})</small>
+              </div>
+              <div style="text-align:right;">
+                <div style="font-weight:700;">₹${(item.subtotal || 0).toFixed(2)}</div>
+                <button class="btn-xs btn-danger" style="margin-top:4px;" onclick="handleRemoveCartItem('${item.id}')">Remove</button>
+              </div>
+            </div>
+          `).join('')}
+          <div style="display:flex; justify-content:space-between; margin-top:14px; font-weight:700; font-size:1.1rem; color:var(--success);">
+            <span>Subtotal:</span>
+            <span>₹${(cart.summary?.subtotal || 0).toFixed(2)}</span>
+          </div>
+        `;
+      }
+    }
+
+    async function handleRemoveCartItem(itemId) {
+      const res = await apiFetch(`/cart/items/${itemId}`, { method: 'DELETE' });
+      if (res.ok) loadUserCart();
+    }
+
+    async function handleClearCart() {
+      const res = await apiFetch('/cart', { method: 'DELETE' });
+      if (res.ok) loadUserCart();
+    }
+
+    async function handleApplyCoupon() {
+      const code = document.getElementById('coupon-code-input').value.trim();
+      if (!code) return;
+
+      const res = await apiFetch('/cart/coupon', {
+        method: 'POST',
+        body: JSON.stringify({ code })
+      });
+
+      const out = document.getElementById('coupon-preview-result');
+      if (res.ok) {
+        const code = res.data.couponCode || res.data.code || 'COUPON';
+        const discount = (res.data.discount !== undefined ? res.data.discount : res.data.discountAmount) ?? 0;
+        const total = (res.data.totalAfterDiscount !== undefined ? res.data.totalAfterDiscount : res.data.finalSubtotal) ?? 0;
+        const subtotal = res.data.subtotal !== undefined ? ` (Subtotal: ₹${Number(res.data.subtotal).toFixed(2)})` : '';
+        out.className = 'alert alert-success';
+        out.textContent = `Coupon Applied! Code: ${code} | Discount: ₹${Number(discount).toFixed(2)} | Final Total: ₹${Number(total).toFixed(2)}${subtotal}`;
+        const checkoutCouponInput = document.getElementById('checkout-coupon-code');
+        if (checkoutCouponInput) checkoutCouponInput.value = code;
+      } else {
+        out.className = 'alert alert-danger';
+        out.textContent = `Coupon Error: ${res.data.message || JSON.stringify(res.data)}`;
+      }
+    }
+
+    async function handleRemoveCoupon() {
+      const res = await apiFetch('/cart/coupon', { method: 'DELETE' });
+      document.getElementById('coupon-preview-result').textContent = res.ok ? 'Coupon preview removed.' : 'Error removing coupon';
+      document.getElementById('coupon-preview-result').className = 'alert alert-info';
+      const checkoutCouponInput = document.getElementById('checkout-coupon-code');
+      if (checkoutCouponInput) checkoutCouponInput.value = '';
+    }
+
+    async function handleCheckoutPrep() {
+      const res = await apiFetch('/cart/checkout-prep');
+      const out = document.getElementById('checkout-output');
+      out.style.display = 'block';
+      out.textContent = `Checkout Prep Contract:\n${JSON.stringify(res.data, null, 2)}`;
+    }
+
+    async function loadAddressesForSelect() {
+      const select = document.getElementById('checkout-address-select');
+      const res = await apiFetch('/users/addresses');
+      if (res.ok && Array.isArray(res.data)) {
+        select.innerHTML = res.data.length > 0 
+          ? res.data.map(a => `<option value="${a.id}">${a.fullName} - ${a.streetAddress}, ${a.city} (${a.isDefault ? 'Default' : ''})</option>`).join('')
+          : '<option value="">No saved addresses found. Create one in Addresses tab!</option>';
+      }
+    }
+
+    async function handleCheckout() {
+      const addressId = document.getElementById('checkout-address-select').value;
+      const notes = document.getElementById('checkout-notes').value.trim();
+      const couponCode = (document.getElementById('checkout-coupon-code')?.value || document.getElementById('coupon-code-input')?.value || '').trim();
+
+      if (!addressId) {
+        alert('Please select or create a delivery address first.');
+        return;
+      }
+
+      const dto = {
+        addressId,
+        notes: notes || undefined,
+        couponCode: couponCode || undefined
+      };
+
+      const res = await apiFetch('/orders/checkout', {
+        method: 'POST',
+        body: JSON.stringify(dto)
+      });
+
+      const out = document.getElementById('checkout-output');
+      out.style.display = 'block';
+      out.textContent = JSON.stringify(res.data, null, 2);
+
+      if (res.ok && res.data.order) {
+        document.getElementById('payment-order-id').value = res.data.order.id;
+        const o = res.data.order;
+        const discountMsg = Number(o.discount) > 0 ? `\nDiscount Applied: -₹${Number(o.discount).toFixed(2)}` : '';
+        alert(`Order Created Successfully!\nOrder Number: ${o.orderNumber}\nGrand Total: ₹${Number(o.grandTotal).toFixed(2)}${discountMsg}\nStatus: PENDING_PAYMENT\nNavigating to Payments tab.`);
+        switchTab('tab-orders');
+      }
+    }
+
+    // Orders & Razorpay Payments Flow
+    async function loadUserOrders() {
+      const tbody = document.getElementById('orders-tbody');
+      tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted);">Loading orders...</td></tr>';
+
+      const res = await apiFetch('/orders');
+      if (res.ok && res.data.items) {
+        if (res.data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="color:var(--text-muted);">No orders found for this customer.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = res.data.items.map(o => `
+          <tr>
+            <td><strong>${o.orderNumber}</strong><br/><small style="color:var(--text-muted);">${o.id}</small></td>
+            <td><span class="status-badge ${o.status === 'CONFIRMED' ? 'status-completed' : 'status-pending'}">${o.status}</span></td>
+            <td>₹${(o.grandTotal || 0).toFixed(2)}</td>
+            <td>
+              <button class="btn btn-xs btn-primary" onclick="selectOrderForPayment('${o.id}')">Pay / Select</button>
+            </td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    function selectOrderForPayment(orderId) {
+      document.getElementById('payment-order-id').value = orderId;
+      document.getElementById('payment-status-box').textContent = `Order ${orderId} selected. Click "1. Initiate Payment" to begin.`;
+    }
+
+    async function handleInitiatePayment() {
+      const orderId = document.getElementById('payment-order-id').value.trim();
+      if (!orderId) {
+        alert('Please enter or select an Order UUID.');
+        return;
+      }
+
+      const box = document.getElementById('payment-status-box');
+      box.textContent = 'Calling POST /payments/initiate...';
+
+      const res = await apiFetch('/payments/initiate', {
+        method: 'POST',
+        body: JSON.stringify({ orderId, paymentMethod: 'CARD' })
+      });
+
+      box.textContent = JSON.stringify(res.data, null, 2);
+
+      if (res.ok && res.data.gatewayOrderId) {
+        const initData = res.data;
+        box.textContent += '\n\nOpening Razorpay Payment Modal...';
+
+        const options = {
+          key: initData.keyId || CONFIG.RAZORPAY_KEY_ID,
+          amount: initData.amountInPaise,
+          currency: initData.currency || 'INR',
+          name: 'E-Commerce Integration Cockpit',
+          description: `Payment for Order ${orderId.substring(0, 8)}`,
+          order_id: initData.gatewayOrderId,
+          handler: async function (rzpResponse) {
+            box.textContent += `\n\nModal Finished!\nPayment ID: ${rzpResponse.razorpay_payment_id}\nVerifying with backend POST /payments/verify...`;
+
+            const verifyRes = await apiFetch('/payments/verify', {
+              method: 'POST',
+              body: JSON.stringify({
+                orderId: orderId,
+                razorpayOrderId: rzpResponse.razorpay_order_id,
+                razorpayPaymentId: rzpResponse.razorpay_payment_id,
+                razorpaySignature: rzpResponse.razorpay_signature
+              })
+            });
+
+            box.textContent += `\n\nVerify Result:\n${JSON.stringify(verifyRes.data, null, 2)}`;
+            if (verifyRes.ok) {
+              alert('Payment COMPLETED & Order CONFIRMED! Re-fetching backend order state...');
+              await loadUserOrders();
+              await loadPaymentStatus();
+            }
+          }
+        };
+
+        const rzp = new Razorpay(options);
+        rzp.open();
+      }
+    }
+
+    async function loadPaymentStatus() {
+      const orderId = document.getElementById('payment-order-id').value.trim();
+      if (!orderId) return;
+
+      const res = await apiFetch(`/payments/order/${orderId}`);
+      document.getElementById('payment-status-box').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Address Actions
+    async function handleCreateAddress() {
+      const dto = {
+        street1: document.getElementById('addr-line1').value,
+        street2: '',
+        city: document.getElementById('addr-city').value,
+        state: document.getElementById('addr-state').value,
+        country: 'India',
+        postalCode: document.getElementById('addr-zip').value,
+        isDefault: true
+      };
+
+      const res = await apiFetch('/users/addresses', {
+        method: 'POST',
+        body: JSON.stringify(dto)
+      });
+
+      alert(res.ok ? 'Address created successfully!' : `Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadUserAddresses();
+    }
+
+    async function loadUserAddresses() {
+      const container = document.getElementById('addresses-list-container');
+      const res = await apiFetch('/users/addresses');
+      if (res.ok && Array.isArray(res.data)) {
+        container.innerHTML = res.data.length > 0 ? res.data.map(a => `
+          <div style="padding:10px; border-bottom:1px solid var(--border-color);">
+            <strong>${a.fullName}</strong> (${a.phone})<br/>
+            ${a.streetAddress}, ${a.city}, ${a.state} - ${a.postalCode} ${a.isDefault ? '<span class="status-badge status-completed">Default</span>' : ''}
+            <div style="margin-top:6px;">
+              <button class="btn btn-xs btn-outline" onclick="copyToClipboard('${a.id}', 'Address ID')">Copy ID</button>
+            </div>
+          </div>
+        `).join('') : '<div style="color:var(--text-muted);">No addresses found.</div>';
+        loadAddressesForSelect();
+      }
+    }
+
+    // Reviews Actions
+    async function handleCreateReview() {
+      const productId = document.getElementById('review-product-id').value.trim();
+      const rating = parseInt(document.getElementById('review-rating').value);
+      const title = document.getElementById('review-title').value;
+      const comment = document.getElementById('review-comment').value;
+
+      const res = await apiFetch(`/catalog/products/${productId}/reviews`, {
+        method: 'POST',
+        body: JSON.stringify({ rating, title, content: comment })
+      });
+
+      alert(res.ok ? 'Review submitted for admin moderation!' : `Review Submission Error: ${res.data.message || JSON.stringify(res.data)}`);
+      if (res.ok) loadMyReviews();
+    }
+
+    async function loadMyReviews() {
+      const res = await apiFetch('/reviews/me');
+      document.getElementById('my-reviews-container').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Wishlist Actions
+    async function loadUserWishlist() {
+      const res = await apiFetch('/wishlist');
+      document.getElementById('wishlist-items-container').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function handleAddToWishlist() {
+      const productId = document.getElementById('wishlist-product-id').value.trim();
+      if (!productId) return;
+      const res = await apiFetch('/wishlist/items', {
+        method: 'POST',
+        body: JSON.stringify({ productId })
+      });
+      alert(res.ok ? 'Added to wishlist!' : `Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadUserWishlist();
+    }
+
+    // Notifications Actions
+    async function loadNotificationCount() {
+      const res = await apiFetch('/notifications/unread-count');
+      if (res.ok && res.data.unreadCount !== undefined) {
+        document.getElementById('nav-notify-count').textContent = res.data.unreadCount;
+      }
+    }
+
+    async function loadUserNotifications() {
+      const container = document.getElementById('notifications-list-container');
+      const res = await apiFetch('/notifications');
+      if (res.ok && res.data.items) {
+        container.innerHTML = res.data.items.length > 0 ? res.data.items.map(n => `
+          <div style="padding:12px; background:var(--bg-base); border-radius:6px; border:1px solid var(--border-color); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <strong>${n.title}</strong><br/>
+              <span style="font-size:0.85rem; color:var(--text-muted);">${n.message}</span>
+            </div>
+            <div>
+              ${!n.isRead ? `<button class="btn btn-xs btn-primary" onclick="markNotificationRead('${n.id}')">Mark Read</button>` : '<span style="font-size:0.75rem; color:var(--success);">Read</span>'}
+            </div>
+          </div>
+        `).join('') : '<div style="color:var(--text-muted);">No notifications found.</div>';
+      }
+    }
+
+    async function markNotificationRead(id) {
+      await apiFetch(`/notifications/${id}/read`, { method: 'PATCH' });
+      loadUserNotifications();
+      loadNotificationCount();
+    }
+
+    async function handleMarkAllNotificationsRead() {
+      await apiFetch('/notifications/read-all', { method: 'PATCH' });
+      loadUserNotifications();
+      loadNotificationCount();
+    }
+
+    // Admin Catalog: Categories & Brands
+    async function handleCreateCategory() {
+      const name = document.getElementById('cat-name').value.trim();
+      const parentId = document.getElementById('cat-parent').value.trim() || null;
+      const res = await apiFetch('/categories', {
+        method: 'POST',
+        body: JSON.stringify({ name, parentId })
+      });
+      alert(res.ok ? 'Category created!' : `Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminCategories();
+    }
+
+    async function loadAdminCategories() {
+      const res = await apiFetch('/categories');
+      document.getElementById('admin-categories-list').textContent = JSON.stringify(res.data, null, 2);
+      populateProductDropdowns();
+    }
+
+    async function handleCreateBrand() {
+      const name = document.getElementById('brand-name').value.trim();
+      const description = document.getElementById('brand-desc').value.trim();
+      const logoUrl = document.getElementById('brand-logo').value.trim() || undefined;
+      const isActive = true;
+      const res = await apiFetch('/brands', {
+        method: 'POST',
+        body: JSON.stringify({ name, description, logoUrl, isActive })
+      });
+      alert(res.ok ? 'Brand created!' : `Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminBrands();
+    }
+
+    async function loadAdminBrands() {
+      const res = await apiFetch('/brands');
+      document.getElementById('admin-brands-list').textContent = JSON.stringify(res.data, null, 2);
+      populateProductDropdowns();
+    }
+
+    async function populateProductDropdowns() {
+      const catSelect = document.getElementById('prod-cat-select');
+      const catFilter = document.getElementById('catalog-category-filter');
+      const brandSelect = document.getElementById('prod-brand-select');
+
+      const [resC, resB] = await Promise.all([apiFetch('/categories'), apiFetch('/brands')]);
+      if (resC.ok && Array.isArray(resC.data)) {
+        const opts = resC.data.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+        catSelect.innerHTML = opts;
+        if (catFilter) catFilter.innerHTML = `<option value="">All Categories</option>${opts}`;
+      }
+      if (resB.ok && Array.isArray(resB.data)) {
+        brandSelect.innerHTML = resB.data.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+      }
+    }
+
+    // Admin Product & Variant Creation
+    async function handleCreateProduct() {
+      const name = document.getElementById('prod-name').value.trim();
+      const description = document.getElementById('prod-desc').value;
+      const shortDescription = document.getElementById('prod-short-desc').value;
+      const categoryId = document.getElementById('prod-cat-select').value;
+      const brandId = document.getElementById('prod-brand-select').value;
+
+      const sku = document.getElementById('prod-var-sku').value.trim();
+      const price = document.getElementById('prod-var-price').value.trim();
+      const color = document.getElementById('prod-var-color').value.trim();
+      const size = document.getElementById('prod-var-size').value.trim();
+
+      if (!name || !categoryId || !brandId || !sku || !price) {
+        alert('Please fill out Product Name, Category, Brand, SKU, and Price.');
+        return;
+      }
+
+      const dto = {
+        name,
+        description,
+        shortDescription,
+        categoryId,
+        brandId,
+        status: 'draft',
+        variants: [
+          { sku, price, color, size, isActive: true }
+        ]
+      };
+
+      const res = await apiFetch('/products', {
+        method: 'POST',
+        body: JSON.stringify(dto)
+      });
+
+      alert(res.ok ? `Product "${name}" created successfully!` : `Create Product Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) {
+        loadAdminProductsList();
+        loadCatalogProducts();
+      }
+    }
+
+    async function loadAdminProductsList() {
+      const res = await apiFetch('/products');
+      document.getElementById('admin-products-container').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function handlePatchProduct() {
+      const id = document.getElementById('patch-prod-id').value.trim();
+      const status = document.getElementById('patch-prod-status').value;
+      if (!id) {
+        alert('Enter a Product UUID');
+        return;
+      }
+      const res = await apiFetch(`/products/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status })
+      });
+      alert(res.ok ? 'Product status updated!' : `Update Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) {
+        loadAdminProductsList();
+        loadCatalogProducts();
+      }
+    }
+
+    // Cloudinary Media Upload
+    async function handleUploadMedia() {
+      const productId = document.getElementById('upload-product-id').value.trim();
+      const altText = document.getElementById('upload-alt-text').value.trim();
+      const displayOrder = document.getElementById('upload-display-order').value;
+      const mediaType = document.getElementById('upload-media-type').value;
+      const fileInput = document.getElementById('upload-file-input');
+
+      if (!productId) {
+        alert('Please enter a Product UUID.');
+        return;
+      }
+      if (!fileInput.files || !fileInput.files[0]) {
+        alert('Please select a media file (Image or Video) to upload.');
+        return;
+      }
+
+      const token = jwtToken || localStorage.getItem('jwtToken');
+      if (!token) {
+        alert('Authentication required. Please login with an ADMIN account in Dashboard & Auth first.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+      if (altText) formData.append('altText', altText);
+      formData.append('displayOrder', String(displayOrder !== '' ? parseInt(displayOrder) : 0));
+      if (mediaType) formData.append('type', mediaType);
+
+      const out = document.getElementById('media-upload-output');
+      out.textContent = 'Uploading binary stream to Cloudinary CDN via NestJS backend...';
+
+      try {
+        const headers = {
+          'Authorization': `Bearer ${token}`
+        };
+
+        const rawRes = await fetch(`${CONFIG.API_BASE_URL}/products/${productId}/media`, {
+          method: 'POST',
+          headers,
+          body: formData
+        });
+
+        let data;
+        const contentType = rawRes.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          data = await rawRes.json();
+        } else {
+          data = await rawRes.text();
+        }
+
+        const res = { ok: rawRes.ok, status: rawRes.status, data };
+        out.textContent = JSON.stringify(res.data, null, 2);
+
+        if (res.ok && res.data.url) {
+          const isVideo = res.data.type === 'VIDEO' || res.data.url.endsWith('.mp4') || res.data.url.endsWith('.webm');
+          document.getElementById('media-preview-container').innerHTML = `
+            <div style="font-weight:600; margin-bottom:6px; color:var(--success);">Uploaded Asset (${res.data.type || 'IMAGE'}):</div>
+            <div style="font-size:0.8rem; margin-bottom:8px;">
+              <a href="${res.data.url}" target="_blank" style="color:var(--secondary); word-break:break-all;">${res.data.url}</a>
+            </div>
+            ${isVideo 
+              ? `<video src="${res.data.url}" controls style="max-width:100%; max-height:220px; border-radius:6px; border:1px solid var(--border-color);"></video>`
+              : `<img src="${res.data.url}" alt="${res.data.altText || ''}" style="max-width:100%; max-height:220px; border-radius:6px; border:1px solid var(--border-color); object-fit:contain;" />`
+            }
+          `;
+          loadCatalogProducts();
+          loadAdminProductsList();
+        } else if (!res.ok) {
+          alert(`Media Upload Failed: ${res.data.message || JSON.stringify(res.data)}`);
+        }
+      } catch (err) {
+        out.textContent = `Upload Network Error: ${err.message}`;
+      }
+    }
+
+    // Admin Inventory
+    async function handleCreateInventory() {
+      const variantId = document.getElementById('inv-variant-id').value.trim();
+      const availableQuantity = parseInt(document.getElementById('inv-init-qty').value);
+      const lowStockThreshold = parseInt(document.getElementById('inv-threshold').value);
+
+      if (!variantId) {
+        alert('Please enter Variant UUID');
+        return;
+      }
+
+      const res = await apiFetch('/inventory', {
+        method: 'POST',
+        body: JSON.stringify({ variantId, availableQuantity, reservedQuantity: 0, lowStockThreshold })
+      });
+
+      alert(res.ok ? 'Inventory initialized!' : `Inventory Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminInventory();
+    }
+
+    async function handleAdjustInventory() {
+      const variantId = document.getElementById('inv-variant-id').value.trim();
+      const type = document.getElementById('inv-adj-type').value;
+      const quantity = parseInt(document.getElementById('inv-adj-qty').value);
+
+      if (!variantId) {
+        alert('Please enter Variant UUID');
+        return;
+      }
+
+      const res = await apiFetch(`/inventory/${variantId}/adjust`, {
+        method: 'PATCH',
+        body: JSON.stringify({ type, quantity })
+      });
+
+      alert(res.ok ? `Stock adjusted (${type} by ${quantity})!` : `Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminInventory();
+    }
+
+    async function loadAdminInventory() {
+      const res = await apiFetch('/inventory');
+      document.getElementById('admin-inventory-container').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Admin Coupons
+    async function handleCreateCoupon() {
+      const code = document.getElementById('coupon-code')?.value.trim().toUpperCase();
+      const description = document.getElementById('coupon-desc')?.value.trim();
+      const discountType = document.getElementById('coupon-type')?.value;
+      const discountValue = parseFloat(document.getElementById('coupon-value')?.value);
+      const minOrderVal = document.getElementById('coupon-min')?.value;
+      const maxDiscVal = document.getElementById('coupon-max')?.value;
+      const startsAt = document.getElementById('coupon-start')?.value.trim();
+      const expiresAt = document.getElementById('coupon-end')?.value.trim();
+      const usageLimitEl = document.getElementById('coupon-usage-limit');
+      const perUserEl = document.getElementById('coupon-per-user');
+      const activeEl = document.getElementById('coupon-active');
+
+      if (!code || isNaN(discountValue) || !startsAt || !expiresAt) {
+        alert('Please fill out Code, Discount Value, Starts At, and Expires At.');
+        return;
+      }
+
+      const dto = {
+        code,
+        description: description || undefined,
+        discountType,
+        discountValue,
+        startsAt,
+        expiresAt,
+        isActive: activeEl ? activeEl.checked : true
+      };
+
+      if (minOrderVal !== '' && !isNaN(parseFloat(minOrderVal))) {
+        dto.minimumOrderAmount = parseFloat(minOrderVal);
+      }
+      if (maxDiscVal !== '' && !isNaN(parseFloat(maxDiscVal))) {
+        dto.maxDiscountAmount = parseFloat(maxDiscVal);
+      }
+      if (usageLimitEl && usageLimitEl.value !== '' && !isNaN(parseInt(usageLimitEl.value))) {
+        dto.usageLimit = parseInt(usageLimitEl.value);
+      }
+      if (perUserEl && perUserEl.value !== '' && !isNaN(parseInt(perUserEl.value))) {
+        dto.perUserUsageLimit = parseInt(perUserEl.value);
+      }
+
+      const res = await apiFetch('/admin/coupons', {
+        method: 'POST',
+        body: JSON.stringify(dto)
+      });
+
+      alert(res.ok ? `Coupon "${code}" created successfully!` : `Create Coupon Error: ${JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminCoupons();
+    }
+
+    async function loadAdminCoupons() {
+      const res = await apiFetch('/admin/coupons');
+      document.getElementById('admin-coupons-container').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Admin Orders & Status Transitions
+    async function loadAdminOrders() {
+      const tbody = document.getElementById('admin-orders-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">Loading system orders...</td></tr>';
+
+      const res = await apiFetch('/orders/admin/all');
+      if (res.ok && res.data.items) {
+        if (res.data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">No system orders found.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = res.data.items.map(o => {
+          let statusBadgeClass = 'status-pending';
+          if (o.status === 'CONFIRMED' || o.status === 'DELIVERED') statusBadgeClass = 'status-completed';
+          if (o.status === 'CANCELLED' || o.status === 'FAILED') statusBadgeClass = 'status-failed';
+          if (o.status === 'PROCESSING' || o.status === 'SHIPPED') statusBadgeClass = 'status-confirmed';
+
+          return `
+            <tr>
+              <td><strong>${o.orderNumber}</strong><br/><small style="color:var(--text-muted);">${o.id}</small></td>
+              <td>${o.recipientName || 'Customer'}</td>
+              <td><span class="status-badge ${statusBadgeClass}">${o.status}</span></td>
+              <td><span style="font-size:0.8rem; font-weight:600; color:var(--secondary);">${o.paymentMethod || 'CARD'}</span></td>
+              <td>₹${(o.grandTotal || 0).toFixed(2)}</td>
+              <td>
+                <div style="display:flex; gap:6px; align-items:center;">
+                  <select onchange="handleAdminStatusUpdate('${o.id}', this.value)" class="btn-xs" style="background:var(--bg-card); color:var(--text-main);">
+                    <option value="">Transition Status...</option>
+                    <option value="CONFIRMED">CONFIRMED</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="SHIPPED">SHIPPED</option>
+                    <option value="DELIVERED">DELIVERED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                  <button class="btn-xs btn-outline" onclick="viewAdminOrderDetail('${o.id}')">Audit Log</button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    async function viewAdminOrderDetail(orderId) {
+      const box = document.getElementById('admin-order-detail-box');
+      box.style.display = 'block';
+      box.textContent = `Loading full audit details for Order ${orderId}...`;
+
+      const res = await apiFetch(`/orders/admin/${orderId}`);
+      box.textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    async function handleAdminStatusUpdate(orderId, newStatus) {
+      if (!newStatus) return;
+      const res = await apiFetch(`/orders/admin/${orderId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      alert(res.ok ? `Order ${orderId} updated to ${newStatus}` : `Status Update Error: ${res.data.message || JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminOrders();
+    }
+
+    // Admin Payments & Refunds
+    async function loadAdminPayments() {
+      const tbody = document.getElementById('admin-payments-tbody');
+      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">Loading payments...</td></tr>';
+
+      const res = await apiFetch('/admin/payments');
+      if (res.ok && res.data.items) {
+        if (res.data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted);">No payments recorded yet.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = res.data.items.map(p => {
+          let badgeClass = 'status-pending';
+          if (p.status === 'COMPLETED') badgeClass = 'status-completed';
+          if (p.status === 'REFUNDED') badgeClass = 'status-confirmed';
+          if (p.status === 'FAILED') badgeClass = 'status-failed';
+
+          return `
+            <tr>
+              <td><strong>${p.orderNumber || p.orderId?.slice(0, 8)}</strong><br/><small style="color:var(--text-muted);">${p.id}</small></td>
+              <td><strong>₹${(p.amount || 0).toFixed(2)}</strong></td>
+              <td><span class="status-badge ${badgeClass}">${p.status}</span></td>
+              <td>${p.method || 'CARD'}</td>
+              <td><small style="color:var(--text-muted);">${p.razorpayPaymentId || '-'}</small></td>
+              <td>
+                <button class="btn-xs btn-primary" onclick="selectPaymentForRefund('${p.id}', ${p.amount})">Select</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+    }
+
+    function selectPaymentForRefund(paymentId, amount) {
+      document.getElementById('refund-payment-id').value = paymentId;
+      document.getElementById('refund-amount').value = amount || '';
+      document.getElementById('refund-result-box').style.display = 'none';
+      alert(`Payment ${paymentId} selected for refund (Max: ₹${amount}).`);
+    }
+
+    async function handleRefundPayment() {
+      const paymentId = document.getElementById('refund-payment-id').value.trim();
+      const amountVal = document.getElementById('refund-amount').value;
+      const reason = document.getElementById('refund-reason').value.trim();
+
+      if (!paymentId) {
+        alert('Please enter or select a Payment UUID to refund.');
+        return;
+      }
+
+      const dto = { reason: reason || 'Customer requested refund' };
+      if (amountVal !== '' && !isNaN(parseFloat(amountVal))) {
+        dto.amount = parseFloat(amountVal);
+      }
+
+      const box = document.getElementById('refund-result-box');
+      box.style.display = 'block';
+      box.textContent = `Executing gateway refund for Payment ${paymentId}...`;
+
+      const res = await apiFetch(`/admin/payments/${paymentId}/refund`, {
+        method: 'POST',
+        body: JSON.stringify(dto)
+      });
+
+      box.textContent = JSON.stringify(res.data, null, 2);
+      alert(res.ok ? 'Refund processed successfully via Gateway!' : `Refund Error: ${res.data.message || JSON.stringify(res.data)}`);
+      if (res.ok) {
+        loadAdminPayments();
+        loadAdminOrders();
+      }
+    }
+
+    // Admin Reviews Moderation
+    async function loadAdminReviews() {
+      const container = document.getElementById('admin-reviews-list');
+      if (!container) return;
+      const status = document.getElementById('admin-review-status-filter')?.value;
+      const queryParam = status ? `?status=${status}` : '';
+
+      container.innerHTML = '<div style="color:var(--text-muted);">Loading reviews...</div>';
+
+      const res = await apiFetch(`/admin/reviews${queryParam}`);
+      if (res.ok && res.data.items) {
+        if (res.data.items.length === 0) {
+          container.innerHTML = `<div style="color:var(--text-muted);">No ${status || ''} reviews found in moderation queue.</div>`;
+          return;
+        }
+
+        container.innerHTML = res.data.items.map(r => {
+          const stars = '⭐'.repeat(r.rating || 5);
+          let badgeClass = 'status-pending';
+          if (r.status === 'APPROVED') badgeClass = 'status-completed';
+          if (r.status === 'REJECTED') badgeClass = 'status-failed';
+
+          return `
+            <div style="background:var(--bg-base); border:1px solid var(--border-color); border-radius:8px; padding:16px;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+                <div>
+                  <div style="font-size:0.95rem; font-weight:700; color:var(--text-main);">${r.title || 'Review'} <span style="font-size:0.85rem; margin-left:6px;">${stars}</span></div>
+                  <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                    Product: <code>${r.productId}</code> | Author: <strong>${r.author?.name || r.userId}</strong> (${r.author?.email || ''})
+                  </div>
+                </div>
+                <div>
+                  <span class="status-badge ${badgeClass}">${r.status}</span>
+                </div>
+              </div>
+
+              <div style="font-size:0.88rem; color:var(--text-main); margin:10px 0; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; border-left:3px solid var(--primary);">
+                ${r.content}
+              </div>
+
+              ${r.moderationReason ? `<div style="font-size:0.78rem; color:var(--warning); margin-bottom:10px;">Reason: ${r.moderationReason} (by ${r.moderatedByRole || 'ADMIN'})</div>` : ''}
+
+              <div style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--border-color); padding-top:10px; margin-top:10px;">
+                <div style="display:flex; gap:8px; flex:1; max-width:350px;">
+                  <input type="text" id="mod-reason-${r.id}" class="form-control" style="padding:4px 8px; font-size:0.8rem;" placeholder="Optional moderation feedback..." value="${r.moderationReason || ''}" />
+                </div>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn btn-xs btn-success" onclick="handleModerateReview('${r.id}', 'APPROVED')">✅ Approve (Publish)</button>
+                  <button class="btn btn-xs btn-danger" onclick="handleModerateReview('${r.id}', 'REJECTED')">❌ Reject</button>
+                  <button class="btn btn-xs btn-outline" onclick="handleAdminDeleteReview('${r.id}')">🗑️ Delete</button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        container.innerHTML = `<div style="color:var(--danger);">Error fetching reviews: ${JSON.stringify(res.data)}</div>`;
+      }
+    }
+
+    async function handleModerateReview(reviewId, status) {
+      const reasonInput = document.getElementById(`mod-reason-${reviewId}`);
+      const reason = reasonInput ? reasonInput.value.trim() : '';
+
+      if (status === 'REJECTED' && !reason) {
+        alert('Please provide a reason for rejecting this review.');
+        return;
+      }
+
+      const dto = { status };
+      if (reason) dto.reason = reason;
+
+      const res = await apiFetch(`/admin/reviews/${reviewId}/moderation`, {
+        method: 'PATCH',
+        body: JSON.stringify(dto)
+      });
+
+      alert(res.ok ? `Review marked as ${status}!` : `Moderation Error: ${res.data.message || JSON.stringify(res.data)}`);
+      if (res.ok) {
+        loadAdminReviews();
+        loadCatalogProducts();
+      }
+    }
+
+    async function handleAdminDeleteReview(reviewId) {
+      if (!confirm('Are you sure you want to permanently delete this review?')) return;
+      const res = await apiFetch(`/admin/reviews/${reviewId}`, {
+        method: 'DELETE'
+      });
+      alert(res.ok ? 'Review deleted permanently!' : `Delete Error: ${res.data.message || JSON.stringify(res.data)}`);
+      if (res.ok) loadAdminReviews();
+    }
+
+    // Admin Metrics
+    async function loadAdminStats() {
+      const [resP, resO, resR, resC] = await Promise.all([
+        apiFetch('/products'),
+        apiFetch('/orders/admin/all'),
+        apiFetch('/admin/reviews?status=PENDING'),
+        apiFetch('/admin/coupons')
+      ]);
+
+      if (resP.ok) document.getElementById('stat-products-count').textContent = resP.data.total || (resP.data.items ? resP.data.items.length : 0);
+      if (resO.ok) document.getElementById('stat-orders-count').textContent = resO.data.total || (resO.data.items ? resO.data.items.length : 0);
+      if (resR.ok) document.getElementById('stat-reviews-count').textContent = resR.data.total || (resR.data.items ? resR.data.items.length : 0);
+      if (resC.ok) document.getElementById('stat-coupons-count').textContent = resC.data.total || (resC.data.items ? resC.data.items.length : 0);
+    }
+
+    // Shipping Rates
+    async function handleCalcShipping() {
+      const zip = document.getElementById('ship-zip').value;
+      const weight = document.getElementById('ship-weight').value;
+      const val = document.getElementById('ship-val').value;
+
+      const res = await apiFetch(`/shipping/rates?postalCode=${zip}&weightInKg=${weight}&declaredValue=${val}`);
+      document.getElementById('shipping-result-box').textContent = JSON.stringify(res.data, null, 2);
+    }
+
+    // Debug Console Quick Fill
+    function applyDebugTemplate(val) {
+      if (!val) return;
+      const endpoint = document.getElementById('debug-endpoint');
+      const method = document.getElementById('debug-method');
+      const body = document.getElementById('debug-body');
+
+      method.value = 'GET';
+      body.value = '';
+
+      const templates = {
+        'health': '/health',
+        'auth-me': '/auth/me',
+        'auth-admin-test': '/auth/admin-test',
+        'products': '/products',
+        'categories': '/categories',
+        'brands': '/brands',
+        'cart': '/cart',
+        'orders': '/orders',
+        'notifications': '/notifications',
+        'admin-orders': '/orders/admin/all',
+        'admin-coupons': '/admin/coupons'
+      };
+
+      endpoint.value = templates[val] || '/health';
+    }
+
+    async function handleDebugExecute() {
+      const method = document.getElementById('debug-method').value;
+      const endpoint = document.getElementById('debug-endpoint').value.trim();
+      const bodyStr = document.getElementById('debug-body').value.trim();
+
+      const options = { method };
+      if (bodyStr && (method === 'POST' || method === 'PATCH')) {
+        try {
+          options.body = JSON.stringify(JSON.parse(bodyStr));
+        } catch (e) {
+          alert('Invalid JSON in request body.');
+          return;
+        }
+      }
+
+      const res = await apiFetch(endpoint, options);
+      document.getElementById('debug-response').textContent = 
+        `HTTP ${res.status} ${res.statusText} (${res.duration}ms)\n\n${JSON.stringify(res.data, null, 2)}`;
+    }
+
+    // Ping Backend & Init
+    async function checkBackendHealth() {
+      const res = await apiFetch('/health');
+      const pingEl = document.getElementById('backend-ping');
+      if (res.ok) {
+        pingEl.innerHTML = '<span style="color:var(--success);">● Live 3000</span>';
+      } else {
+        pingEl.innerHTML = '<span style="color:var(--danger);">● Offline</span>';
+      }
+    }
+
+    window.onload = async () => {
+      updateAuthUI();
+      checkBackendHealth();
+      if (jwtToken) await fetchProfile();
+      loadCatalogProducts();
+    };
+  </script>
+</body>
+</html>

@@ -20,6 +20,8 @@ import { CartItem } from '../../cart/entities/cart-item.entity';
 import { CartStatus } from '../../cart/enums/cart-status.enum';
 import { Address } from '../../users/entities/address.entity';
 import { ProductStatus } from '../../catalog/enum/productstaus.enum';
+import { Payment } from '../../payments/entities/payment.entity';
+import { PaymentStatus } from '../../payments/enums/payment.enums';
 import { CheckoutDto } from '../dto/checkout.dto';
 import { UpdateOrderStatusDto } from '../dto/update-order-status.dto';
 import { OrderQueryDto } from '../dto/order-query.dto';
@@ -742,6 +744,22 @@ export class OrdersService {
           }
         }
         // Note: For SHIPPED, DELIVERED, COMPLETED orders that are refunded, inventory remains untouched as stock was fulfilled.
+      }
+
+      // Synchronize Payment entity lifecycle state with Order cancellation/refund
+      const payment = order.payment || (await manager.findOne(Payment, { where: { order: { id: order.id } } }));
+      if (payment) {
+        if (targetStatus === OrderStatus.CANCELLED || targetStatus === OrderStatus.FAILED) {
+          if (payment.status === PaymentStatus.PENDING) {
+            payment.status = PaymentStatus.CANCELLED;
+            await manager.save(Payment, payment);
+          }
+        } else if (targetStatus === OrderStatus.REFUNDED) {
+          if (payment.status === PaymentStatus.COMPLETED) {
+            payment.status = PaymentStatus.REFUNDED;
+            await manager.save(Payment, payment);
+          }
+        }
       }
 
       const previousStatus = order.status;
